@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fit or DIE!">
+<meta name="theme-color" content="#12082b">
+<title>Fit or DIE! 💀🔥</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg1:#12082b; --bg2:#2b1460; --ac:#ffd23f; --ac2:#ff8a3d;
+  --card:rgba(255,255,255,.07); --card2:rgba(255,255,255,.12); --line:rgba(255,255,255,.12);
+  --tx:#f4f1ff; --tx2:rgba(244,241,255,.65); --tx3:rgba(244,241,255,.4);
+  --me:#38b6ff; --ok:#3ddc84; --bad:#ff5757; --r:18px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{color-scheme:dark}
+body{
+  font-family:'Heebo',-apple-system,'Segoe UI',sans-serif;color:var(--tx);
+  background:linear-gradient(160deg,var(--bg1) 0%,var(--bg2) 60%,var(--bg1) 100%) fixed;
+  min-height:100vh;min-height:100dvh;overscroll-behavior-y:none;
+}
+button{font-family:inherit;color:inherit;background:none;border:none;cursor:pointer;font-size:1em}
+input,textarea,select{font-family:inherit;font-size:1em;color:var(--tx);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:12px;padding:10px 12px;width:100%;outline:none}
+input:focus,textarea:focus{border-color:var(--ac)}
+img{max-width:100%}
+#app{max-width:520px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 10px) 14px calc(env(safe-area-inset-bottom,0px) + 92px);min-height:100vh}
+.center{text-align:center}
+h2{font-size:1.15em;font-weight:800;margin-bottom:10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:12px;backdrop-filter:blur(6px)}
+.muted{color:var(--tx2);font-size:.85em}
+.tiny{color:var(--tx3);font-size:.75em}
+.row{display:flex;align-items:center;gap:10px}
+.spread{justify-content:space-between}
+.grow{flex:1}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:11px 16px;font-weight:700;transition:transform .1s}
+.btn:active{transform:scale(.96)}
+.btn.primary{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#1c1029;border:none;box-shadow:0 4px 18px rgba(255,180,60,.35)}
+.btn.big{width:100%;padding:15px;font-size:1.1em;border-radius:16px}
+.btn.danger{color:var(--bad);border-color:rgba(255,87,87,.4)}
+.chip{display:inline-flex;align-items:center;gap:5px;background:var(--card2);border-radius:999px;padding:4px 11px;font-size:.8em;font-weight:600}
+
+/* ===== topbar ===== */
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.logo{font-weight:900;font-size:1.35em;letter-spacing:.5px;background:linear-gradient(90deg,var(--ac),var(--ac2),#ff5757);-webkit-background-clip:text;background-clip:text;color:transparent;white-space:nowrap}
+.ver{font-size:.65em;color:var(--tx3);font-weight:600;margin-inline-start:6px}
+.gear{font-size:1.3em;padding:6px}
+
+/* ===== bottom nav ===== */
+.bnav{position:fixed;bottom:0;left:0;right:0;z-index:50;display:flex;justify-content:space-around;align-items:flex-end;
+  max-width:520px;margin:0 auto;padding:8px 6px calc(env(safe-area-inset-bottom,0px) + 8px);
+  background:rgba(14,7,34,.85);backdrop-filter:blur(14px);border-top:1px solid var(--line)}
+.bnav button{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:1.25em;color:var(--tx3);padding:4px 10px;flex:1}
+.bnav button span{font-size:.5em;font-weight:700}
+.bnav button.on{color:var(--ac)}
+.bnav .fab{flex:0 0 auto;width:58px;height:58px;border-radius:50%;background:linear-gradient(135deg,var(--ac),var(--ac2));
+  color:#1c1029;font-size:2em;font-weight:900;display:flex;align-items:center;justify-content:center;
+  margin-top:-26px;box-shadow:0 6px 20px rgba(255,180,60,.45);border:3px solid var(--bg1)}
+
+/* ===== avatars ===== */
+.ava{display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(0,0,0,.3);
+  border:2.5px solid var(--c,#888);position:relative;flex:0 0 auto}
+.ava.s1{width:34px;height:34px;font-size:1.05em}
+.ava.s2{width:48px;height:48px;font-size:1.5em}
+.ava.s3{width:74px;height:74px;font-size:2.4em}
+.ava .lvl{position:absolute;bottom:-6px;inset-inline-end:-6px;font-size:.55em;background:var(--bg2);border-radius:999px;padding:1px 4px;border:1px solid var(--line)}
+
+/* ===== home ===== */
+.weekcard{background:linear-gradient(135deg,rgba(255,255,255,.1),rgba(255,255,255,.04))}
+.ringwrap{position:relative;display:flex;align-items:center;justify-content:center}
+.ringcenter{position:absolute;text-align:center}
+.ringcenter b{font-size:1.5em;font-weight:900}
+.daydots{display:flex;justify-content:space-between;margin-top:10px}
+.daydot{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:.7em;color:var(--tx3)}
+.daydot i{width:13px;height:13px;border-radius:50%;background:var(--card2);border:1px solid var(--line);font-style:normal}
+.daydot.on i{background:var(--ok);border-color:var(--ok);box-shadow:0 0 8px rgba(61,220,132,.6)}
+.daydot.today{color:var(--ac)}
+.gbar{height:20px;border-radius:999px;background:rgba(0,0,0,.3);overflow:hidden;display:flex;margin-top:8px}
+.gbar i{height:100%;display:block}
+.captainbtn{background:linear-gradient(135deg,#7c4dff,#b388ff);color:#fff;border:none;width:100%;padding:12px;border-radius:14px;font-weight:800;margin-bottom:12px;box-shadow:0 4px 16px rgba(124,77,255,.4)}
+
+/* ===== checkin ===== */
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 14px}
+.chips button{background:var(--card2);border:1.5px solid var(--line);border-radius:14px;padding:9px 13px;font-weight:600;font-size:.92em}
+.chips button.sel{border-color:var(--ac);background:rgba(255,210,63,.15);color:var(--ac);box-shadow:0 0 10px rgba(255,210,63,.25)}
+.minrow{display:flex;gap:8px;align-items:center;margin:8px 0 14px;flex-wrap:wrap}
+.minrow button{background:var(--card2);border:1.5px solid var(--line);border-radius:12px;padding:9px 0;font-weight:700;flex:1;min-width:52px}
+.minrow button.sel{border-color:var(--ac);color:var(--ac);background:rgba(255,210,63,.15)}
+.minrow input{width:74px;text-align:center;flex:0 0 auto}
+.photoprev{width:100%;border-radius:12px;margin-top:8px}
+
+/* ===== feed ===== */
+.feed{display:flex;flex-direction:column;gap:10px;padding-bottom:70px}
+.fdate{text-align:center;font-size:.72em;color:var(--tx3);margin:6px 0 -2px;font-weight:600}
+.fitem{max-width:88%}
+.fitem.mine{margin-inline-start:auto}
+.bubble{background:var(--card2);border-radius:16px;padding:9px 13px;border:1px solid var(--line)}
+.fitem.mine .bubble{background:color-mix(in srgb,var(--me) 26%,rgba(255,255,255,.05));border-color:color-mix(in srgb,var(--me) 45%,transparent)}
+.fhead{display:flex;align-items:center;gap:7px;margin-bottom:3px;font-size:.78em;color:var(--tx2);font-weight:700}
+.ftime{font-size:.68em;color:var(--tx3);margin-top:3px;text-align:end}
+.fsys{text-align:center;font-size:.8em;color:var(--tx2);background:rgba(0,0,0,.22);border-radius:999px;padding:6px 14px;align-self:center;max-width:95%}
+.ckcard{border-inline-start:4px solid var(--c,#888);background:var(--card);border-radius:14px;padding:10px 12px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);border-inline-end:1px solid var(--line)}
+.ckcard .big{font-weight:800;font-size:1.02em}
+.ckphoto{border-radius:12px;margin-top:8px;max-height:280px;object-fit:cover;width:100%}
+.reacts{display:flex;gap:5px;margin-top:5px;flex-wrap:wrap}
+.reacts button{background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:999px;padding:2px 9px;font-size:.78em}
+.reacts button.on{border-color:var(--ac);background:rgba(255,210,63,.16)}
+.rpick{display:flex;gap:6px;background:rgba(0,0,0,.4);border-radius:999px;padding:5px 10px;margin-top:6px;width:max-content}
+.rpick button{font-size:1.15em}
+.msgbar{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 78px);left:0;right:0;max-width:520px;margin:0 auto;
+  display:flex;gap:8px;padding:8px 14px;background:rgba(14,7,34,.9);backdrop-filter:blur(12px);z-index:40}
+.msgbar input{flex:1;border-radius:999px}
+.msgbar button{font-size:1.5em;color:var(--ac)}
+
+/* ===== group ===== */
+.mcard{display:flex;align-items:center;gap:12px}
+.mbar{height:9px;border-radius:999px;background:rgba(0,0,0,.3);overflow:hidden;margin-top:5px}
+.mbar i{display:block;height:100%;border-radius:999px}
+.medal{font-size:1.2em}
+
+/* ===== profile ===== */
+.xpbar{height:12px;border-radius:999px;background:rgba(0,0,0,.3);overflow:hidden;margin:6px 0 4px}
+.xpbar i{display:block;height:100%;background:linear-gradient(90deg,var(--ac),var(--ac2));border-radius:999px}
+.badges{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.badge{background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:10px 6px;text-align:center}
+.badge .e{font-size:1.7em}
+.badge .n{font-size:.72em;font-weight:700;margin-top:3px}
+.badge.locked{opacity:.35;filter:grayscale(1)}
+.wbars{display:flex;align-items:flex-end;gap:6px;height:110px;position:relative;margin-top:8px}
+.wbars .wb{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px;height:100%}
+.wbars .wb i{display:block;width:100%;border-radius:6px 6px 0 0;background:linear-gradient(180deg,var(--ac),var(--ac2));min-height:2px}
+.wbars .wb span{font-size:.62em;color:var(--tx3)}
+.goalline{position:absolute;left:0;right:0;border-top:2px dashed rgba(255,255,255,.35);font-size:.6em;color:var(--tx3)}
+.photoslot{aspect-ratio:3/4;border:1.5px dashed var(--line);border-radius:14px;display:flex;align-items:center;justify-content:center;
+  color:var(--tx3);font-size:.8em;overflow:hidden;background:rgba(0,0,0,.2)}
+.photoslot img{width:100%;height:100%;object-fit:cover}
+
+/* ===== themes/colors pickers ===== */
+.themegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.themegrid button{border-radius:14px;padding:13px 6px;border:2px solid transparent;font-weight:700;font-size:.85em;color:#fff}
+.themegrid button.sel{border-color:#fff;box-shadow:0 0 12px rgba(255,255,255,.4)}
+.emogrid{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;margin:8px 0}
+.emogrid button{font-size:1.6em;background:var(--card2);border:2px solid transparent;border-radius:12px;padding:6px 0}
+.emogrid button.sel{border-color:var(--ac)}
+.colorrow{display:flex;gap:9px;flex-wrap:wrap;margin:8px 0}
+.colorrow button{width:34px;height:34px;border-radius:50%;border:3px solid transparent}
+.colorrow button.sel{border-color:#fff;box-shadow:0 0 10px rgba(255,255,255,.5)}
+
+/* ===== auth/splash ===== */
+.splash{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;gap:14px;text-align:center}
+.splash .biglogo{font-size:2.3em;font-weight:900;background:linear-gradient(90deg,var(--ac),var(--ac2),#ff5757);-webkit-background-clip:text;background-clip:text;color:transparent}
+.skull{font-size:3.5em;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+.tabs{display:flex;background:var(--card);border-radius:14px;padding:4px;margin-bottom:12px}
+.tabs button{flex:1;padding:9px;border-radius:11px;font-weight:700;color:var(--tx2)}
+.tabs button.on{background:var(--card2);color:var(--tx)}
+.field{margin-bottom:10px;text-align:start}
+.field label{display:block;font-size:.8em;color:var(--tx2);font-weight:600;margin-bottom:4px}
+
+/* ===== toasts / fx ===== */
+#toasts{position:fixed;top:calc(env(safe-area-inset-top,0px) + 12px);left:0;right:0;z-index:100;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
+.toast{background:rgba(20,10,45,.95);border:1px solid var(--line);border-radius:999px;padding:9px 18px;font-weight:700;font-size:.9em;
+  box-shadow:0 6px 24px rgba(0,0,0,.5);animation:tin .25s}
+.toast.gold{border-color:var(--ac);color:var(--ac)}
+.toast.bad{border-color:var(--bad);color:var(--bad)}
+@keyframes tin{from{transform:translateY(-18px);opacity:0}}
+.xppop{position:fixed;top:38%;left:50%;transform:translate(-50%,-50%);z-index:110;font-size:2.6em;font-weight:900;color:var(--ac);
+  text-shadow:0 0 24px rgba(255,210,63,.8);animation:xpp 1.4s forwards;pointer-events:none}
+@keyframes xpp{0%{transform:translate(-50%,-50%) scale(.3);opacity:0}25%{transform:translate(-50%,-50%) scale(1.25);opacity:1}60%{transform:translate(-50%,-50%) scale(1);opacity:1}100%{transform:translate(-50%,-80%) scale(.9);opacity:0}}
+.confetto{position:fixed;top:-30px;z-index:105;font-size:1.5em;animation:fall linear forwards;pointer-events:none}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:.2}}
+.demobanner{background:rgba(255,210,63,.12);border:1px solid rgba(255,210,63,.35);border-radius:12px;padding:7px 12px;font-size:.78em;color:var(--ac);margin-bottom:12px;text-align:center;font-weight:600}
+.persona{display:flex;align-items:center;gap:12px;width:100%;text-align:start}
+.steps li{margin:8px 0 8px 0;padding-inline-start:4px;color:var(--tx2);font-size:.9em}
+.svgchart{width:100%;height:auto;display:block}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toasts"></div>
+<script>
+'use strict';
+/* ============================================================
+   Fit or DIE! 💀🔥 — אפליקציית אתגר כושר קבוצתי
+   קובץ יחיד: HTML + CSS + JS. עברית RTL. ללא build.
+   שני מצבי עבודה:
+     - מצב הדגמה (DemoStore): נתונים מקומיים ב-localStorage, נטען
+       אוטומטית כשאין הגדרות Firebase — לפיתוח והתרשמות.
+     - מצב ענן (FireStore): Firebase Auth + Firestore, סנכרון חי
+       בין המשתתפים. ראו SETUP-FIREBASE.md להקמה.
+   ============================================================ */
+const APP_VERSION = '0.1.0';
+
+/* ==== הגדרות Firebase ====
+   אחרי הקמת הפרויקט (ראה SETUP-FIREBASE.md) מדביקים כאן את
+   אובייקט ההגדרות מקונסולת Firebase. כל עוד הערך null —
+   האפליקציה עולה במצב הדגמה מקומי. */
+const FIREBASE_CONFIG = null;
+/* דוגמה:
+const FIREBASE_CONFIG = {
+  apiKey: "...", authDomain: "fit-or-die-xxxx.firebaseapp.com",
+  projectId: "fit-or-die-xxxx", storageBucket: "...",
+  messagingSenderId: "...", appId: "..."
+};
+*/
+
+/* ===================== קבועים ===================== */
+const ACTIVITIES = [
+  {id:'walk', n:'הליכה', e:'🚶'}, {id:'run', n:'ריצה', e:'🏃'},
+  {id:'gym', n:'חדר כושר', e:'🏋️'}, {id:'bike', n:'אופניים', e:'🚴'},
+  {id:'swim', n:'שחייה', e:'🏊'}, {id:'ball', n:'משחק כדור', e:'⚽'},
+  {id:'other', n:'אחר', e:'✨'}
+];
+const THEMES = [
+  {id:'hero',    n:'גיבורי־על', bg1:'#12082b', bg2:'#2b1460', ac:'#ffd23f', ac2:'#ff8a3d'},
+  {id:'fire',    n:'אש',        bg1:'#2b0a12', bg2:'#6e1e1e', ac:'#ffb020', ac2:'#ff5757'},
+  {id:'ocean',   n:'אוקיינוס',  bg1:'#051c2b', bg2:'#0e4a6e', ac:'#38d6ff', ac2:'#3ddc84'},
+  {id:'forest',  n:'יער',       bg1:'#0a2313', bg2:'#1e5a2e', ac:'#a8e05f', ac2:'#3ddc84'},
+  {id:'galaxy',  n:'גלקסיה',    bg1:'#0d0a2b', bg2:'#42106e', ac:'#b388ff', ac2:'#ff7ab6'},
+  {id:'sunrise', n:'זריחה',     bg1:'#2b1408', bg2:'#6e3a10', ac:'#ffd23f', ac2:'#ff7ab6'}
+];
+const LEVELS = [
+  {xp:0,    n:'טירון',     e:'🐣'}, {xp:100,  n:'מתאמן',    e:'🥊'},
+  {xp:250,  n:'לוחם',      e:'⚔️'}, {xp:450,  n:'סיירת',    e:'🎖️'},
+  {xp:700,  n:'גיבור',     e:'🦸'}, {xp:1000, n:'גיבור־על', e:'⚡'},
+  {xp:1400, n:'אגדה',      e:'🌟'}, {xp:2000, n:'אלוף־על',  e:'👑'}
+];
+const BADGES = [
+  {id:'first',    n:'ראשון בשטח',   e:'🎬', d:'האימון הראשון שלך באתגר'},
+  {id:'spread',   n:'מפוזר ומנצח',  e:'📅', d:'3 ימים פעילים או יותר בשבוע אחד'},
+  {id:'perfect',  n:'שבוע מושלם',   e:'🏆', d:'עמידה ביעד הדקות השבועי'},
+  {id:'streak7',  n:'על אש',        e:'🔥', d:'רצף 7 ימים פעילים ברציפות'},
+  {id:'comeback', n:'הקאמבק',       e:'🦅', d:'חזרה לאימונים אחרי הפסקה של 5+ ימים'},
+  {id:'photo',    n:'צלם בשטח',     e:'📸', d:'דיווח ראשון עם תמונה'}
+];
+const HERO_EMOJIS = ['🦸‍♂️','🦸‍♀️','🦹‍♂️','🦹‍♀️','🥷','🤖','🦁','🐆','🦅','⚡','🔥','💪'];
+const MEMBER_COLORS = ['#ff5757','#ffb020','#3ddc84','#38b6ff','#b388ff','#ff7ab6','#2dd4bf','#f97316'];
+const REACTIONS = ['❤️','🔥','💪','👏','😂'];  // נשמרות לפי אינדקס: r0..r4
+const DAY_LETTERS = ['א','ב','ג','ד','ה','ו','ש'];
+const GOAL_MIN_RANGE = [60, 300];   // טווח היעד השבועי שהקפטן יכול לקבוע
+const MIN_WORKOUT = 10;             // דקות מינימום לאימון שנספר
+
+/* ===================== עזרי בסיס ===================== */
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uidGen = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+function dayKey(d) { d = d || new Date(); const p = n => String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
+function daysBetween(a, b) { return Math.round((Date.parse(b) - Date.parse(a)) / 864e5); }
+function sundayOf(d) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - x.getDay()); return x; }
+function fmtTime(ts) { return new Date(ts).toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'}); }
+function fmtDate(ts) {
+  const d = new Date(ts), today = dayKey(), k = dayKey(d);
+  if (k === today) return 'היום';
+  if (daysBetween(k, today) === 1) return 'אתמול';
+  return d.toLocaleDateString('he-IL', {weekday:'long', day:'numeric', month:'numeric'});
+}
+function levelIndex(xp) { let i = 0; for (let j = 0; j < LEVELS.length; j++) if (xp >= LEVELS[j].xp) i = j; return i; }
+function themeById(id) { return THEMES.find(t => t.id === id) || THEMES[0]; }
+function actById(id) { return ACTIVITIES.find(a => a.id === id) || ACTIVITIES[ACTIVITIES.length-1]; }
+function badgeById(id) { return BADGES.find(b => b.id === id); }
+
+function showToast(txt, cls) {
+  const t = document.createElement('div');
+  t.className = 'toast ' + (cls || '');
+  t.textContent = txt;
+  $('toasts').appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .4s'; }, 2400);
+  setTimeout(() => t.remove(), 2900);
+}
+function xpPop(n) {
+  const e = document.createElement('div');
+  e.className = 'xppop';
+  e.textContent = '+' + n + ' XP 💥';
+  document.body.appendChild(e);
+  setTimeout(() => e.remove(), 1500);
+}
+function confetti() {
+  const emo = ['🎉','⭐','💥','🔥','🏆','✨'];
+  for (let i = 0; i < 26; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetto';
+    c.textContent = emo[i % emo.length];
+    c.style.left = (Math.random()*100) + 'vw';
+    c.style.animationDuration = (1.6 + Math.random()*1.6) + 's';
+    c.style.animationDelay = (Math.random()*.5) + 's';
+    document.body.appendChild(c);
+    setTimeout(() => c.remove(), 3800);
+  }
+}
+
+/* דחיסת תמונה בצד לקוח ל-JPEG data URL (עד ~250KB) */
+async function compressImage(file, maxDim) {
+  maxDim = maxDim || 900;
+  let bmp = null;
+  try { bmp = await createImageBitmap(file, {imageOrientation:'from-image'}); }
+  catch (e) {
+    bmp = await new Promise((res, rej) => {
+      const url = URL.createObjectURL(file), img = new Image();
+      img.onload = () => { URL.revokeObjectURL(url); res(img); };
+      img.onerror = rej; img.src = url;
+    });
+  }
+  const w = bmp.width, h = bmp.height, sc = Math.min(1, maxDim / Math.max(w, h));
+  const cv = document.createElement('canvas');
+  cv.width = Math.round(w * sc); cv.height = Math.round(h * sc);
+  cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
+  let q = 0.72, out = cv.toDataURL('image/jpeg', q);
+  while (out.length > 250 * 1365 && q > 0.35) { q -= 0.1; out = cv.toDataURL('image/jpeg', q); } // ‎~250KB base64
+  return out;
+}
+
+/* ===================== מצב גלובלי ===================== */
+const state = {
+  booting: true, mode: null,          // 'demo' | 'fire'
+  view: 'home', authTab: 'login', joinTab: 'join',
+  me: null,                            // uid שלי
+  challenge: null, members: {}, weeks: {}, feed: [],
+  priv: null,                          // הנתונים הפרטיים שלי
+  profileUid: null,                    // פרופיל של מי מוצג
+  reactFor: null,                      // פריט פיד עם בורר ריאקציות פתוח
+  draft: null,                         // טיוטת דיווח אימון
+  editProfile: null, pendingJoin: null, authUser: null, authBusy: false,
+};
+
+/* ===================== חישובי שבוע ===================== */
+function curWeek() {
+  if (!state.challenge) return 0;
+  const n = Math.floor(daysBetween(state.challenge.startDate, dayKey()) / 7);
+  return Math.max(0, Math.min(n, state.challenge.weeksTotal - 1));
+}
+function weekInfo(n) {
+  const ch = state.challenge, saved = state.weeks[n] || {};
+  const order = ch.captainOrder && ch.captainOrder.length ? ch.captainOrder : Object.keys(state.members);
+  return {
+    n,
+    captainUid: saved.captainUid || order[n % order.length],
+    goalMin: saved.goalMin || ch.defaultGoalMin,
+    theme: saved.theme || THEMES[n % THEMES.length].id,  // ברירת מחדל: ערכת נושא מתחלפת כל שבוע
+    bonus: saved.bonus || '',
+    groupBonusDone: !!saved.groupBonusDone,
+  };
+}
+function memberWeek(m, n) { return (m.weekStats && m.weekStats[n]) || {min:0, daysArr:[], goalBonus:false, spreadBonus:false, bonusClaim:false}; }
+function groupWeekMin(n) { return Object.values(state.members).reduce((s, m) => s + memberWeek(m, n).min, 0); }
+function daysLeftInWeek() {
+  const end = Date.parse(state.challenge.startDate) + (curWeek()+1) * 7 * 864e5;
+  return Math.max(0, Math.ceil((end - Date.now()) / 864e5));
+}
+
+/* ===================== מנוע המשחוק =====================
+   פונקציה טהורה: מקבלת עותק של משתתף + דיווח, מחזירה משתתף
+   מעודכן, XP שהתקבל ורשימת אירועים (תג/דרגה/בונוס). משמשת גם
+   את מצב ההדגמה וגם את מצב הענן — מקור אמת אחד לחוקים. */
+function applyCheckin(member, weekN, weekGoal, checkin) {
+  const m = JSON.parse(JSON.stringify(member));
+  m.badges = m.badges || []; m.weekStats = m.weekStats || {};
+  const ws = m.weekStats[weekN] = Object.assign({min:0, daysArr:[], goalBonus:false, spreadBonus:false, bonusClaim:false}, m.weekStats[weekN]);
+  const day = checkin.day, events = [];
+  let xp = 10 + Math.floor(checkin.minutes / 5);
+
+  if (m.lastActiveDay !== day) {                      // יום פעיל חדש → רצף
+    const gap = m.lastActiveDay ? daysBetween(m.lastActiveDay, day) : null;
+    if (gap === 1) m.streakDays = (m.streakDays || 0) + 1;
+    else {
+      if (gap != null && gap >= 5 && !m.badges.includes('comeback')) { m.badges.push('comeback'); events.push({t:'badge', id:'comeback'}); }
+      m.streakDays = 1;
+    }
+    m.lastActiveDay = day;
+    xp += 5 * Math.min(m.streakDays, 7);
+    if (m.streakDays === 7 && !m.badges.includes('streak7')) { m.badges.push('streak7'); events.push({t:'badge', id:'streak7'}); }
+  }
+  if (!ws.daysArr.includes(day)) ws.daysArr.push(day);
+  ws.min += checkin.minutes;
+
+  if (!m.badges.includes('first')) { m.badges.push('first'); events.push({t:'badge', id:'first'}); }
+  if (checkin.photo && !m.badges.includes('photo')) { m.badges.push('photo'); events.push({t:'badge', id:'photo'}); }
+  if (ws.daysArr.length >= 3 && !ws.spreadBonus) { ws.spreadBonus = true; xp += 20; events.push({t:'bonus', txt:'3 ימים פעילים השבוע! +20'}); }
+  if (ws.min >= weekGoal && !ws.goalBonus) {
+    ws.goalBonus = true; xp += 50; events.push({t:'bonus', txt:'עמידה ביעד השבועי! +50'});
+    if (!m.badges.includes('perfect')) { m.badges.push('perfect'); events.push({t:'badge', id:'perfect'}); }
+  }
+  const lvBefore = levelIndex(m.xp || 0);
+  m.xp = (m.xp || 0) + xp;
+  if (levelIndex(m.xp) > lvBefore) events.push({t:'level', lv: levelIndex(m.xp)});
+  return {m, xp, events};
+}
+/* אירועי מנוע → פריטי פיד מערכתיים + טוסטים (ניסוח ניטרלי-מגדרית) */
+function eventFeedText(name, ev) {
+  if (ev.t === 'level') return '🎉 דרגה חדשה ל' + name + ': ' + LEVELS[ev.lv].n + ' ' + LEVELS[ev.lv].e + '!';
+  if (ev.t === 'badge') { const b = badgeById(ev.id); return b.e + ' תג חדש ל' + name + ': "' + b.n + '"!'; }
+  return null;
+}
+
+/* ===================== שכבת נתונים ===================== */
+let Store = null;
+
+/* ---------- מצב הדגמה: localStorage ---------- */
+const DemoStore = {
+  LS: 'fitordie_demo_v1',
+  data: null,
+  async boot() {
+    state.mode = 'demo';
+    let d = null;
+    try { d = JSON.parse(localStorage.getItem(this.LS)); } catch (e) {}
+    if (!d || !d.challenge) { d = this.seed(); }
+    this.data = d;
+    this.save();
+    state.challenge = d.challenge; state.members = d.members;
+    state.weeks = d.weeks; state.feed = d.feed;
+    state.me = d.me;
+    state.priv = d.me ? (d.privates[d.me] || (d.privates[d.me] = {weighIns:[]})) : null;
+    state.view = d.me ? 'home' : 'pickuser';
+    state.booting = false;
+  },
+  save() { try { localStorage.setItem(this.LS, JSON.stringify(this.data)); } catch (e) {} },
+  pickUser(uid) {
+    this.data.me = uid; state.me = uid;
+    state.priv = this.data.privates[uid] || (this.data.privates[uid] = {weighIns:[]});
+    this.save(); state.view = 'home'; applyTheme(); render();
+  },
+  reset() { localStorage.removeItem(this.LS); location.reload(); },
+
+  async checkin(c) {
+    const w = curWeek(), wi = weekInfo(w);
+    const groupBefore = groupWeekMin(w);
+    const res = applyCheckin(state.members[state.me], w, wi.goalMin, c);
+    state.members[state.me] = res.m;
+    this.data.members = state.members;
+    state.feed.push({id: uidGen(), type:'checkin', uid: state.me, ts: Date.now(), week: w,
+      activity: c.activity, minutes: c.minutes, text: c.note || '', photo: c.photo || null, reactions:{}});
+    const name = res.m.name;
+    res.events.forEach(ev => {
+      const txt = eventFeedText(name, ev);
+      if (txt) state.feed.push({id: uidGen(), type:'system', ts: Date.now(), text: txt, reactions:{}});
+    });
+    // בונוס קבוצתי — כשהקבוצה חוצה את היעד המשותף
+    const groupGoal = wi.goalMin * Object.keys(state.members).length;
+    if (!wi.groupBonusDone && groupBefore < groupGoal && groupWeekMin(w) >= groupGoal) {
+      state.weeks[w] = Object.assign({}, state.weeks[w], {groupBonusDone: true});
+      Object.values(state.members).forEach(m => m.xp += 30);
+      state.feed.push({id: uidGen(), type:'system', ts: Date.now(), text:'🏆 הקבוצה עמדה ביעד השבועי! +30 XP לכל אחד!', reactions:{}});
+      res.events.push({t:'group'});
+    }
+    this.save();
+    return res;
+  },
+  async sendMsg(text) {
+    state.feed.push({id: uidGen(), type:'msg', uid: state.me, ts: Date.now(), text, reactions:{}});
+    this.save();
+  },
+  async react(fid, ri) {
+    const it = state.feed.find(f => f.id === fid); if (!it) return;
+    it.reactions = it.reactions || {};
+    const arr = it.reactions['r'+ri] = it.reactions['r'+ri] || [];
+    const i = arr.indexOf(state.me);
+    if (i >= 0) arr.splice(i, 1); else arr.push(state.me);
+    this.save();
+  },
+  async setWeekPlan(n, plan) {
+    state.weeks[n] = Object.assign({}, state.weeks[n], plan);
+    this.data.weeks = state.weeks;
+    const me = state.members[state.me];
+    state.feed.push({id: uidGen(), type:'system', ts: Date.now(),
+      text:'⚡ ' + me.name + ' — תוכנית השבוע: יעד ' + plan.goalMin + ' דק\' · נושא "' + themeById(plan.theme).n + '"' + (plan.bonus ? ' · משימת בונוס: ' + plan.bonus : ''), reactions:{}});
+    this.save();
+  },
+  async claimBonus() {
+    const w = curWeek(), m = state.members[state.me];
+    const ws = m.weekStats[w] = Object.assign({min:0, daysArr:[], goalBonus:false, spreadBonus:false, bonusClaim:false}, m.weekStats[w]);
+    if (ws.bonusClaim) return false;
+    ws.bonusClaim = true; m.xp += 20;
+    state.feed.push({id: uidGen(), type:'system', ts: Date.now(), text:'🎯 משימת הבונוס הושלמה — ' + m.name + ' +20 XP', reactions:{}});
+    this.save();
+    return true;
+  },
+  async saveProfile(patch) { Object.assign(state.members[state.me], patch); this.save(); },
+  async savePrivate(patch) { Object.assign(state.priv, patch); this.data.privates[state.me] = state.priv; this.save(); },
+  async addWeighIn(kg) {
+    state.priv.weighIns = state.priv.weighIns || [];
+    state.priv.weighIns.push({date: dayKey(), kg});
+    this.save();
+  },
+
+  /* נתוני הדגמה: אתגר בן 3 שבועות עם 4 גיבורים והיסטוריה חיה.
+     הדיווחים מוזנים דרך המנוע האמיתי כדי שהצבירות תמיד עקביות. */
+  seed() {
+    const start = sundayOf(new Date(Date.now() - 16 * 864e5));
+    const ch = {id:'demo', name:'החבר\'ה של פעם 💪', code:'DEMO1', startDate: dayKey(start),
+      weeksTotal: 12, defaultGoalMin: 150, organizerUid:'u1', captainOrder:['u1','u2','u3','u4']};
+    const mk = (uid, name, emoji, color) => ({uid, name, emoji, color, joinedAt: Date.parse(ch.startDate),
+      xp:0, badges:[], streakDays:0, lastActiveDay:null, weekStats:{}});
+    const members = {
+      u1: mk('u1','דני','🦸‍♂️','#38b6ff'), u2: mk('u2','מאיה','🦹‍♀️','#ff7ab6'),
+      u3: mk('u3','רון','🥷','#3ddc84'),  u4: mk('u4','שירה','🦸‍♀️','#ffb020'),
+    };
+    const weeks = {2: {bonus:'אימון בחוץ בטבע 🌳'}};
+    const d = {challenge: ch, members, weeks, feed: [], me: null,
+      privates: {u1: {startWeight:92, goalWeight:85, weighIns:[]}, u2:{weighIns:[]}, u3:{weighIns:[]}, u4:{weighIns:[]}}};
+    // שקילות של דני
+    [[14,92],[7,91.2],[2,90.4]].forEach(([ago,kg]) => d.privates.u1.weighIns.push({date: dayKey(new Date(Date.now()-ago*864e5)), kg}));
+    // היסטוריית דיווחים: [ימים אחורה, uid, פעילות, דקות, הערה]
+    const hist = [
+      [15,'u1','run',35,'פתיחת אתגר!'], [15,'u2','walk',45,''], [14,'u3','gym',60,'חזרה לברזלים 😤'],
+      [13,'u1','walk',30,''], [13,'u4','run',25,''], [12,'u2','swim',40,'בריכה בבוקר'],
+      [11,'u3','bike',50,''], [10,'u1','gym',45,''], [10,'u4','walk',35,''],
+      [9,'u2','run',30,''], [8,'u3','run',40,''], [8,'u1','walk',25,''],
+      [7,'u4','ball',60,'כדורסל עם הילדים'], [6,'u2','walk',50,''], [5,'u3','gym',55,''],
+      [5,'u1','bike',40,''], [4,'u4','run',30,''], [3,'u2','gym',45,''],
+      [2,'u3','walk',35,''], [2,'u1','run',30,'לאט אבל בטוח'], [1,'u4','swim',45,''],
+    ];
+    const msgs = [
+      [15,'u2','יאללה מתחילים!! מי לא מדווח היום עושה כביסה לכולם 😂'],
+      [14,'u1','רון תרגיע עם השעה בחדר כושר, משאיר משהו לשארית השבוע?'],
+      [12,'u3','מי מצטרף מחר לרכיבה בשש בבוקר?'], [12,'u2','שש?? בבוקר?? חחחח בהצלחה'],
+      [7,'u4','הילדים ניצחו אותי 12-8 אבל זה נחשב אימון 😅'],
+      [3,'u1','שבוע אחרון היה חזק, השבוע שוברים שיא קבוצתי!'],
+    ];
+    const all = [
+      ...hist.map(h => ({kind:'ck', ago:h[0], uid:h[1], act:h[2], min:h[3], note:h[4]})),
+      ...msgs.map(m => ({kind:'msg', ago:m[0], uid:m[1], text:m[2]})),
+    ].sort((a,b) => b.ago - a.ago);
+    all.forEach((it, idx) => {
+      const ts = Date.now() - it.ago * 864e5 - (12 - (idx % 10)) * 36e5;
+      const day = dayKey(new Date(ts));
+      if (it.kind === 'msg') { d.feed.push({id:'s'+idx, type:'msg', uid: it.uid, ts, text: it.text, reactions:{}}); return; }
+      const wN = Math.max(0, Math.floor(daysBetween(ch.startDate, day) / 7));
+      const goal = 150;
+      const res = applyCheckin(members[it.uid], wN, goal, {day, minutes: it.min, photo: null});
+      members[it.uid] = res.m;
+      d.feed.push({id:'c'+idx, type:'checkin', uid: it.uid, ts, week: wN, activity: it.act, minutes: it.min, text: it.note, photo: null, reactions:{}});
+      res.events.forEach(ev => {
+        const txt = eventFeedText(res.m.name, ev);
+        if (txt) d.feed.push({id:'e'+idx+ev.t, type:'system', ts: ts+1, text: txt, reactions:{}});
+      });
+    });
+    // ריאקציות לדוגמה
+    const cks = d.feed.filter(f => f.type === 'checkin');
+    if (cks.length > 3) { cks[cks.length-1].reactions = {r1:['u2','u4'], r2:['u3']}; cks[cks.length-3].reactions = {r0:['u1']}; }
+    // בונוסים קבוצתיים לשבועות שהושלמו (מחושב, לא מומצא)
+    [0,1].forEach(w => {
+      const g = 150 * 4;
+      const tot = Object.values(members).reduce((s,m) => s + ((m.weekStats[w]||{}).min||0), 0);
+      if (tot >= g) { weeks[w] = Object.assign({}, weeks[w], {groupBonusDone:true}); Object.values(members).forEach(m => m.xp += 30); }
+    });
+    return d;
+  },
+};
+
+/* ---------- מצב ענן: Firebase (compat SDK, נטען דינמית) ---------- */
+const FireStore = {
+  db: null, auth: null, cid: null, unsubs: [],
+  FV: null,
+  loadScript(src) { return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('script load failed: '+src)); document.head.appendChild(s); }); },
+  async boot() {
+    state.mode = 'fire';
+    const base = 'https://www.gstatic.com/firebasejs/10.14.1/';
+    try {
+      await this.loadScript(base + 'firebase-app-compat.js');
+      await this.loadScript(base + 'firebase-auth-compat.js');
+      await this.loadScript(base + 'firebase-firestore-compat.js');
+    } catch (e) {
+      state.booting = false; state.view = 'neterror'; render(); return;
+    }
+    firebase.initializeApp(FIREBASE_CONFIG);
+    this.auth = firebase.auth(); this.db = firebase.firestore();
+    this.FV = firebase.firestore.FieldValue;
+    try { await this.db.enablePersistence({synchronizeTabs:true}); } catch (e) {}
+    this.auth.onAuthStateChanged(async u => {
+      state.authUser = u;
+      if (!u) { this.detach(); state.me = null; state.booting = false; state.view = 'auth'; render(); return; }
+      state.me = u.uid;
+      await this.resolveMembership();
+    });
+  },
+  async resolveMembership() {
+    try {
+      const udoc = await this.db.doc('users/' + state.me).get();
+      const cid = udoc.exists ? udoc.data().cid : null;
+      if (cid) { this.attach(cid); }
+      else { state.booting = false; state.view = 'join'; render(); }
+    } catch (e) { state.booting = false; state.view = 'join'; showToast('שגיאת טעינה: ' + e.message, 'bad'); render(); }
+  },
+  chRef() { return this.db.collection('challenges').doc(this.cid); },
+  attach(cid) {
+    this.detach(); this.cid = cid;
+    const done = {ch:false, mem:false};
+    const ready = () => { if (done.ch && done.mem && state.booting) {
+      state.booting = false;
+      // אם אין עדיין כרטיס משתתף: המשך תהליך הצטרפות אם יש כזה בתהליך,
+      // אחרת חזרה למסך הקוד (מצב חלקי, למשל התנתקות באמצע רישום)
+      state.view = state.members[state.me] ? 'home' : (state.pendingJoin ? 'onboard' : 'join');
+      applyTheme();
+    } render(); };
+    this.unsubs.push(this.chRef().onSnapshot(s => {
+      if (!s.exists) return;
+      state.challenge = Object.assign({id: cid}, s.data());
+      done.ch = true; ready();
+    }, e => showToast('שגיאה: ' + e.message, 'bad')));
+    this.unsubs.push(this.chRef().collection('members').onSnapshot(s => {
+      const m = {}; s.forEach(d => m[d.id] = Object.assign({uid: d.id}, d.data()));
+      state.members = m; done.mem = true; ready();
+    }));
+    this.unsubs.push(this.chRef().collection('weeks').onSnapshot(s => {
+      const w = {}; s.forEach(d => w[d.id] = d.data());
+      state.weeks = w; applyTheme(); render();
+    }));
+    this.unsubs.push(this.chRef().collection('feed').orderBy('ts', 'desc').limit(250).onSnapshot(s => {
+      const f = []; s.forEach(d => f.push(Object.assign({id: d.id}, d.data())));
+      f.reverse(); state.feed = f; render();
+    }));
+    this.unsubs.push(this.chRef().collection('members').doc(state.me).collection('private').doc('data').onSnapshot(s => {
+      state.priv = s.exists ? s.data() : {weighIns:[]};
+      render();
+    }));
+  },
+  detach() { this.unsubs.forEach(u => { try { u(); } catch(e) {} }); this.unsubs = []; this.cid = null; },
+
+  async signUp(email, pass) { await this.auth.createUserWithEmailAndPassword(email, pass); },
+  async signIn(email, pass) { await this.auth.signInWithEmailAndPassword(email, pass); },
+  async signOut() { await this.auth.signOut(); location.reload(); },
+
+  async createChallenge(f) {
+    const ref = this.db.collection('challenges').doc();
+    await ref.set({name: f.name, code: f.code.toUpperCase(), startDate: dayKey(sundayOf(new Date())),
+      weeksTotal: f.weeks, defaultGoalMin: f.goal, organizerUid: state.me, captainOrder: [], createdAt: Date.now()});
+    state.pendingJoin = {cid: ref.id, code: f.code.toUpperCase()};
+    state.view = 'onboard'; render();
+  },
+  async joinByCode(code) {
+    code = code.trim().toUpperCase();
+    const q = await this.db.collection('challenges').where('code', '==', code).limit(1).get();
+    if (q.empty) { showToast('לא נמצא אתגר עם הקוד הזה', 'bad'); return; }
+    state.pendingJoin = {cid: q.docs[0].id, code};
+    state.view = 'onboard'; render();
+  },
+  async completeOnboard(profile, privData) {
+    const {cid, code} = state.pendingJoin;
+    const mRef = this.db.collection('challenges').doc(cid).collection('members').doc(state.me);
+    await mRef.set({name: profile.name, emoji: profile.emoji, color: profile.color, joinCode: code,
+      joinedAt: Date.now(), xp: 0, badges: [], streakDays: 0, lastActiveDay: null, weekStats: {}});
+    if (privData) await mRef.collection('private').doc('data').set(Object.assign({weighIns:[]}, privData));
+    await this.db.collection('challenges').doc(cid).update({captainOrder: this.FV.arrayUnion(state.me)});
+    await this.db.doc('users/' + state.me).set({cid});
+    state.pendingJoin = null;
+    this.attach(cid);
+    state.view = 'home'; state.booting = false; render();
+  },
+
+  async checkin(c) {
+    const w = curWeek(), wi = weekInfo(w);
+    const groupBefore = groupWeekMin(w);
+    const res = applyCheckin(state.members[state.me], w, wi.goalMin, c);
+    const b = this.db.batch();
+    const mRef = this.chRef().collection('members').doc(state.me);
+    b.update(mRef, {xp: res.m.xp, badges: res.m.badges, streakDays: res.m.streakDays,
+      lastActiveDay: res.m.lastActiveDay, ['weekStats.' + w]: res.m.weekStats[w]});
+    b.set(this.chRef().collection('feed').doc(), {type:'checkin', uid: state.me, ts: Date.now(), week: w,
+      activity: c.activity, minutes: c.minutes, text: c.note || '', photo: c.photo || null, reactions:{}});
+    res.events.forEach(ev => {
+      const txt = eventFeedText(res.m.name, ev);
+      if (txt) b.set(this.chRef().collection('feed').doc(), {type:'system', ts: Date.now()+1, text: txt, reactions:{}});
+    });
+    await b.commit();
+    // בונוס קבוצתי בטרנזקציה — פעם אחת בלבד לשבוע
+    const groupGoal = wi.goalMin * Object.keys(state.members).length;
+    if (!wi.groupBonusDone && groupBefore < groupGoal && groupBefore + c.minutes >= groupGoal) {
+      const wRef = this.chRef().collection('weeks').doc(String(w));
+      try {
+        await this.db.runTransaction(async tx => {
+          const wd = await tx.get(wRef);
+          if (wd.exists && wd.data().groupBonusDone) return;
+          tx.set(wRef, {groupBonusDone: true}, {merge: true});
+        });
+        const b2 = this.db.batch();
+        Object.keys(state.members).forEach(uid =>
+          b2.update(this.chRef().collection('members').doc(uid), {xp: this.FV.increment(30)}));
+        b2.set(this.chRef().collection('feed').doc(), {type:'system', ts: Date.now()+2,
+          text:'🏆 הקבוצה עמדה ביעד השבועי! +30 XP לכל אחד!', reactions:{}});
+        await b2.commit();
+        res.events.push({t:'group'});
+      } catch (e) {}
+    }
+    return res;
+  },
+  async sendMsg(text) {
+    await this.chRef().collection('feed').add({type:'msg', uid: state.me, ts: Date.now(), text, reactions:{}});
+  },
+  async react(fid, ri) {
+    const it = state.feed.find(f => f.id === fid); if (!it) return;
+    const arr = ((it.reactions || {})['r'+ri] || []).slice();
+    const i = arr.indexOf(state.me);
+    if (i >= 0) arr.splice(i, 1); else arr.push(state.me);
+    await this.chRef().collection('feed').doc(fid).update({['reactions.r'+ri]: arr});
+  },
+  async setWeekPlan(n, plan) {
+    await this.chRef().collection('weeks').doc(String(n)).set(plan, {merge: true});
+    const me = state.members[state.me];
+    await this.chRef().collection('feed').add({type:'system', ts: Date.now(),
+      text:'⚡ ' + me.name + ' — תוכנית השבוע: יעד ' + plan.goalMin + ' דק\' · נושא "' + themeById(plan.theme).n + '"' + (plan.bonus ? ' · משימת בונוס: ' + plan.bonus : ''), reactions:{}});
+  },
+  async claimBonus() {
+    const w = curWeek(), m = state.members[state.me];
+    const ws = Object.assign({min:0, daysArr:[], goalBonus:false, spreadBonus:false, bonusClaim:false}, memberWeek(m, w));
+    if (ws.bonusClaim) return false;
+    ws.bonusClaim = true;
+    await this.chRef().collection('members').doc(state.me).update({['weekStats.' + w]: ws, xp: this.FV.increment(20)});
+    await this.chRef().collection('feed').add({type:'system', ts: Date.now(), text:'🎯 משימת הבונוס הושלמה — ' + m.name + ' +20 XP', reactions:{}});
+    return true;
+  },
+  async saveProfile(patch) { await this.chRef().collection('members').doc(state.me).update(patch); },
+  async savePrivate(patch) { await this.chRef().collection('members').doc(state.me).collection('private').doc('data').set(patch, {merge: true}); },
+  async addWeighIn(kg) {
+    await this.chRef().collection('members').doc(state.me).collection('private').doc('data')
+      .set({weighIns: this.FV.arrayUnion({date: dayKey(), kg})}, {merge: true});
+  },
+};
+
+/* ===================== ערכת נושא ===================== */
+function applyTheme() {
+  if (!state.challenge) return;
+  const t = themeById(weekInfo(curWeek()).theme);
+  const r = document.documentElement.style;
+  r.setProperty('--bg1', t.bg1); r.setProperty('--bg2', t.bg2);
+  r.setProperty('--ac', t.ac); r.setProperty('--ac2', t.ac2);
+  const me = state.members[state.me];
+  if (me) r.setProperty('--me', me.color);
+  const meta = document.querySelector('meta[name=theme-color]');
+  if (meta) meta.content = t.bg1;
+}
+
+/* ===================== רכיבי תצוגה ===================== */
+function avatarHTML(m, size) {
+  const lv = levelIndex(m.xp || 0);
+  const glow = 4 + lv * 3;
+  return '<span class="ava s' + (size||2) + '" style="--c:' + m.color + ';box-shadow:0 0 ' + glow + 'px ' + m.color + '">' +
+    m.emoji + '<span class="lvl">' + LEVELS[lv].e + '</span></span>';
+}
+function ringHTML(pct, size, stroke, color, centerHTML) {
+  const r = (size - stroke) / 2, c = 2 * Math.PI * r, off = c * (1 - Math.min(pct, 1));
+  return '<div class="ringwrap" style="width:' + size + 'px;height:' + size + 'px">' +
+    '<svg width="' + size + '" height="' + size + '"><circle cx="' + size/2 + '" cy="' + size/2 + '" r="' + r + '" stroke="rgba(255,255,255,.1)" stroke-width="' + stroke + '" fill="none"/>' +
+    '<circle cx="' + size/2 + '" cy="' + size/2 + '" r="' + r + '" stroke="' + color + '" stroke-width="' + stroke + '" fill="none" stroke-linecap="round" ' +
+    'stroke-dasharray="' + c + '" stroke-dashoffset="' + off + '" transform="rotate(-90 ' + size/2 + ' ' + size/2 + ')" style="transition:stroke-dashoffset .8s"/></svg>' +
+    '<div class="ringcenter">' + centerHTML + '</div></div>';
+}
+function topbarHTML() {
+  return '<div class="topbar"><div class="logo">FIT or DIE! 💀<span class="ver">v' + APP_VERSION + '</span></div>' +
+    '<button class="gear" onclick="nav(\'settings\')">⚙️</button></div>' +
+    (state.mode === 'demo' ? '<div class="demobanner">🧪 מצב הדגמה — הנתונים נשמרים רק במכשיר הזה</div>' : '');
+}
+function navHTML() {
+  const items = [['home','🏠','בית'], ['feed','💬','פיד'], null, ['group','👥','קבוצה'], ['profile','🦸','אני']];
+  return '<nav class="bnav">' + items.map(it => {
+    if (!it) return '<button class="fab" onclick="nav(\'checkin\')">＋</button>';
+    const on = state.view === it[0] || (it[0] === 'profile' && state.view === 'profile' && state.profileUid === state.me);
+    return '<button class="' + (on ? 'on' : '') + '" onclick="nav(\'' + it[0] + '\')">' + it[1] + '<span>' + it[2] + '</span></button>';
+  }).join('') + '</nav>';
+}
+
+/* ===================== מסכים ===================== */
+function splashHTML(msg) {
+  return '<div class="splash"><div class="skull">💀</div><div class="biglogo">FIT or DIE!</div>' +
+    '<div class="muted">' + esc(msg || 'טוען...') + '</div></div>';
+}
+
+function authViewHTML() {
+  const t = state.authTab;
+  return '<div class="splash" style="min-height:60vh;justify-content:flex-end"><div class="skull">💀</div>' +
+    '<div class="biglogo">FIT or DIE!</div><div class="muted">אתגר הכושר הקבוצתי — או שמתאמנים, או ש... 😉</div></div>' +
+    '<div class="card"><div class="tabs">' +
+    '<button class="' + (t==='login'?'on':'') + '" onclick="setAuthTab(\'login\')">התחברות</button>' +
+    '<button class="' + (t==='signup'?'on':'') + '" onclick="setAuthTab(\'signup\')">הרשמה</button></div>' +
+    '<div class="field"><label>אימייל</label><input id="authEmail" type="email" inputmode="email" autocomplete="username" placeholder="you@mail.com"></div>' +
+    '<div class="field"><label>סיסמה</label><input id="authPass" type="password" autocomplete="' + (t==='login'?'current-password':'new-password') + '" placeholder="לפחות 6 תווים"></div>' +
+    '<button class="btn primary big" ' + (state.authBusy?'disabled':'') + ' onclick="doAuth()">' + (t==='login' ? 'התחברות 🔓' : 'יצירת חשבון 🚀') + '</button>' +
+    '<div class="tiny center" style="margin-top:10px">ההתחברות חד-פעמית — המכשיר יישאר מחובר</div></div>';
+}
+
+function joinViewHTML() {
+  const t = state.joinTab;
+  return topbarHTML() +
+    '<div class="card"><div class="tabs">' +
+    '<button class="' + (t==='join'?'on':'') + '" onclick="setJoinTab(\'join\')">הצטרפות לאתגר</button>' +
+    '<button class="' + (t==='create'?'on':'') + '" onclick="setJoinTab(\'create\')">יצירת אתגר חדש</button></div>' +
+    (t === 'join'
+      ? '<div class="field"><label>קוד הזמנה (מקבלים מהמארגן)</label><input id="joinCode" style="text-transform:uppercase;letter-spacing:3px;text-align:center;font-weight:800" maxlength="8" placeholder="ABC12"></div>' +
+        '<button class="btn primary big" onclick="doJoin()">הצטרפות 🤝</button>'
+      : '<div class="field"><label>שם האתגר</label><input id="chName" placeholder="למשל: החבר\'ה של פעם"></div>' +
+        '<div class="field"><label>קוד הזמנה (תמציאו קוד קצר לחברים)</label><input id="chCode" style="text-transform:uppercase" maxlength="8" placeholder="ABC12"></div>' +
+        '<div class="row"><div class="field grow"><label>משך (שבועות)</label><input id="chWeeks" type="number" value="12" min="2" max="52"></div>' +
+        '<div class="field grow"><label>יעד שבועי לאדם (דק\')</label><input id="chGoal" type="number" value="150" min="' + GOAL_MIN_RANGE[0] + '" max="' + GOAL_MIN_RANGE[1] + '" step="10"></div></div>' +
+        '<div class="tiny" style="margin-bottom:10px">האתגר מתחיל ביום ראשון של השבוע הנוכחי. היעד חל על כולם באופן אחיד.</div>' +
+        '<button class="btn primary big" onclick="doCreate()">יוצאים לדרך! 🚀</button>') +
+    '</div>' +
+    '<button class="btn" style="width:100%" onclick="Store.signOut()">יציאה מהחשבון</button>';
+}
+
+function onboardHTML() {
+  const d = state.editProfile || (state.editProfile = {name:'', emoji: HERO_EMOJIS[0], color: MEMBER_COLORS[3], startWeight:'', goalWeight:''});
+  return topbarHTML() + '<h2>בניית כרטיס הגיבור שלך 🦸</h2>' +
+    '<div class="card"><div class="field"><label>שם (כמו שהחברים יראו)</label><input id="obName" value="' + esc(d.name) + '" placeholder="השם שלך"></div>' +
+    '<div class="field"><label>בחר גיבור</label><div class="emogrid">' +
+    HERO_EMOJIS.map(e => '<button class="' + (d.emoji===e?'sel':'') + '" onclick="obSet(\'emoji\',\'' + e + '\')">' + e + '</button>').join('') + '</div></div>' +
+    '<div class="field"><label>צבע אישי</label><div class="colorrow">' +
+    MEMBER_COLORS.map(c => '<button class="' + (d.color===c?'sel':'') + '" style="background:' + c + '" onclick="obSet(\'color\',\'' + c + '\')"></button>').join('') + '</div></div></div>' +
+    '<div class="card"><div class="row spread"><b>נתוני פתיחה 🔒</b><span class="tiny">פרטי — לעיניך בלבד</span></div>' +
+    '<div class="row" style="margin-top:8px"><div class="field grow"><label>משקל נוכחי (ק"ג)</label><input id="obW1" type="number" inputmode="decimal" value="' + d.startWeight + '" placeholder="לא חובה"></div>' +
+    '<div class="field grow"><label>משקל יעד (ק"ג)</label><input id="obW2" type="number" inputmode="decimal" value="' + d.goalWeight + '" placeholder="לא חובה"></div></div></div>' +
+    '<button class="btn primary big" onclick="doOnboard()">זה אני — קדימה! 💥</button>';
+}
+
+function pickUserHTML() {
+  return topbarHTML() + '<h2>מצב הדגמה — בחרו דמות 🎭</h2>' +
+    '<div class="muted" style="margin-bottom:12px">כדי להתרשם מהאפליקציה בוחרים דמות. אפשר להחליף בכל רגע מההגדרות.</div>' +
+    Object.values(state.members).map(m =>
+      '<div class="card"><button class="persona" onclick="DemoStore.pickUser(\'' + m.uid + '\')">' + avatarHTML(m, 2) +
+      '<div class="grow"><b>' + esc(m.name) + '</b><div class="tiny">' + LEVELS[levelIndex(m.xp)].n + ' · ' + m.xp + ' XP</div></div><span style="font-size:1.4em">←</span></button></div>').join('');
+}
+
+function homeHTML() {
+  const w = curWeek(), wi = weekInfo(w), ch = state.challenge;
+  const me = state.members[state.me];
+  const ws = memberWeek(me, w);
+  const cap = state.members[wi.captainUid];
+  const groupGoal = wi.goalMin * Object.keys(state.members).length;
+  const gMin = groupWeekMin(w);
+  const dl = daysLeftInWeek();
+  const today = new Date().getDay();
+  const weekStartTs = Date.parse(ch.startDate) + w * 7 * 864e5;
+  let h = topbarHTML();
+
+  // כרטיס שבוע
+  h += '<div class="card weekcard"><div class="row spread"><b>שבוע ' + (w+1) + '/' + ch.weeksTotal + ' · ' + esc(ch.name) + '</b>' +
+    '<span class="chip">🎨 ' + themeById(wi.theme).n + '</span></div>' +
+    '<div class="row spread" style="margin-top:7px"><span class="row" style="gap:6px">' + (cap ? avatarHTML(cap,1) + '<span class="muted">קפטן השבוע: <b style="color:var(--tx)">' + esc(cap.name) + '</b></span>' : '') + '</span>' +
+    '<span class="chip">' + (dl <= 1 ? '⏰ היום האחרון!' : '⏳ עוד ' + dl + ' ימים') + '</span></div></div>';
+
+  if (wi.captainUid === state.me)
+    h += '<button class="captainbtn" onclick="nav(\'captain\')">⚡ זה השבוע שלך, קפטן! ניהול השבוע ←</button>';
+
+  // טבעת אישית + מד קבוצתי
+  const pct = ws.min / wi.goalMin;
+  h += '<div class="card"><div class="row" style="justify-content:space-around">' +
+    ringHTML(pct, 150, 13, 'var(--ac)', '<b>' + ws.min + '</b><div class="tiny">מתוך ' + wi.goalMin + ' דק\'</div>' + (pct >= 1 ? '<div style="font-size:1.2em">🏆</div>' : '')) +
+    '<div style="flex:1;max-width:180px">' +
+      '<div class="muted">היעד שלי השבוע</div><div style="font-weight:900;font-size:1.3em">' + Math.min(100, Math.round(pct*100)) + '%</div>' +
+      '<div class="muted" style="margin-top:8px">רצף ימים</div><div style="font-weight:900;font-size:1.3em">🔥 ' + (me.streakDays || 0) + '</div>' +
+    '</div></div>' +
+    '<div class="daydots">' + DAY_LETTERS.map((L, i) => {
+      const dk = dayKey(new Date(weekStartTs + i * 864e5));
+      const on = ws.daysArr && ws.daysArr.includes(dk);
+      return '<div class="daydot ' + (on?'on':'') + ' ' + (i===today?'today':'') + '"><i></i>' + L + '</div>';
+    }).join('') + '</div></div>';
+
+  // מד קבוצתי — כל משתתף בצבע שלו
+  h += '<div class="card"><div class="row spread"><b>🤝 היעד הקבוצתי</b><span class="muted">' + gMin + ' / ' + groupGoal + ' דק\'</span></div>' +
+    '<div class="gbar">' + Object.values(state.members).map(m =>
+      '<i style="width:' + Math.min(100, (memberWeek(m,w).min / groupGoal) * 100) + '%;background:' + m.color + '" title="' + esc(m.name) + '"></i>').join('') + '</div>' +
+    '<div class="row" style="margin-top:7px;gap:12px;flex-wrap:wrap">' + Object.values(state.members).map(m =>
+      '<span class="tiny"><span style="color:' + m.color + '">●</span> ' + esc(m.name) + ' ' + memberWeek(m,w).min + '</span>').join('') + '</div>' +
+    (wi.groupBonusDone ? '<div class="chip" style="margin-top:8px;color:var(--ok)">🏆 היעד הקבוצתי הושג! +30 לכולם</div>' : '') + '</div>';
+
+  // משימת בונוס
+  if (wi.bonus) {
+    const claimed = ws.bonusClaim;
+    h += '<div class="card"><div class="row spread"><div><b>🎯 משימת הבונוס של השבוע</b><div class="muted" style="margin-top:3px">' + esc(wi.bonus) + '</div></div>' +
+      (claimed ? '<span class="chip" style="color:var(--ok)">✔ בוצע</span>' : '<button class="btn" onclick="doClaimBonus()">עשיתי! +20</button>') + '</div></div>';
+  }
+
+  h += '<button class="btn primary big" onclick="nav(\'checkin\')" style="margin-bottom:12px">💪 דיווח אימון</button>';
+
+  // תקציר פיד
+  const last = state.feed.slice(-3);
+  if (last.length) {
+    h += '<div class="card"><div class="row spread" style="margin-bottom:8px"><b>💬 קורה עכשיו</b>' +
+      '<button class="chip" onclick="nav(\'feed\')">לפיד המלא ←</button></div>' +
+      last.map(f => {
+        const m = f.uid ? state.members[f.uid] : null;
+        if (f.type === 'system') return '<div class="tiny" style="margin:5px 0">' + esc(f.text) + '</div>';
+        if (f.type === 'checkin') { const a = actById(f.activity); return '<div class="tiny" style="margin:5px 0">' + a.e + ' <b>' + esc(m ? m.name : '') + '</b> — ' + a.n + ' ' + f.minutes + ' דק\'</div>'; }
+        return '<div class="tiny" style="margin:5px 0">💬 <b>' + esc(m ? m.name : '') + ':</b> ' + esc(f.text).slice(0, 60) + '</div>';
+      }).join('') + '</div>';
+  }
+  return h + navHTML();
+}
+
+function checkinHTML() {
+  const d = state.draft || (state.draft = {activity:'walk', minutes:30, note:'', photo:null});
+  const quick = [15, 30, 45, 60, 90];
+  return topbarHTML() + '<h2>דיווח אימון 💪</h2>' +
+    '<div class="card"><div class="muted">מה עשית?</div><div class="chips">' +
+    ACTIVITIES.map(a => '<button class="' + (d.activity===a.id?'sel':'') + '" onclick="draftSet(\'activity\',\'' + a.id + '\')">' + a.e + ' ' + a.n + '</button>').join('') + '</div>' +
+    '<div class="muted">כמה זמן? (דקות)</div><div class="minrow">' +
+    quick.map(q => '<button class="' + (d.minutes===q?'sel':'') + '" onclick="draftMin(' + q + ')">' + q + '</button>').join('') +
+    '<input id="ckMin" type="number" inputmode="numeric" min="' + MIN_WORKOUT + '" max="600" value="' + d.minutes + '" onchange="draftMin(parseInt(this.value)||0)"></div>' +
+    '<div class="muted" style="margin-bottom:4px">כמה מילים (לא חובה)</div>' +
+    '<input id="ckNote" value="' + esc(d.note) + '" placeholder="איך היה?" oninput="state.draft.note=this.value">' +
+    '<div style="margin-top:10px"><button class="btn" onclick="$(\'ckPhoto\').click()">📸 ' + (d.photo ? 'החלפת תמונה' : 'הוספת תמונה') + '</button>' +
+    '<input id="ckPhoto" type="file" accept="image/*" style="display:none" onchange="draftPhoto(this)">' +
+    (d.photo ? '<img class="photoprev" src="' + d.photo + '">' : '') + '</div></div>' +
+    '<button class="btn primary big" onclick="doCheckin()">שמירת הדיווח 🚀</button>' +
+    '<div class="tiny center" style="margin-top:8px">אימון נספר מ-' + MIN_WORKOUT + ' דקות ומעלה. אפשר כמה דיווחים ביום.</div>' +
+    navHTML();
+}
+
+function feedHTML() {
+  let lastDay = '';
+  const items = state.feed.map(f => {
+    let h = '';
+    const dk = dayKey(new Date(f.ts));
+    if (dk !== lastDay) { lastDay = dk; h += '<div class="fdate">' + fmtDate(f.ts) + '</div>'; }
+    if (f.type === 'system') return h + '<div class="fsys">' + esc(f.text) + '</div>';
+    const m = state.members[f.uid] || {name:'?', color:'#888', emoji:'👤', xp:0};
+    const mine = f.uid === state.me;
+    const reacts = reactionsHTML(f);
+    if (f.type === 'checkin') {
+      const a = actById(f.activity);
+      return h + '<div class="fitem ' + (mine?'mine':'') + '"><div class="fhead">' + avatarHTML(m,1) + ' ' + esc(m.name) + '</div>' +
+        '<div class="ckcard" style="--c:' + m.color + '"><div class="big">' + a.e + ' ' + a.n + ' · ' + f.minutes + ' דק\'</div>' +
+        (f.text ? '<div class="muted" style="margin-top:3px">' + esc(f.text) + '</div>' : '') +
+        (f.photo ? '<img class="ckphoto" src="' + f.photo + '" onclick="viewPhoto(\'' + f.id + '\')">' : '') +
+        '<div class="ftime">' + fmtTime(f.ts) + '</div></div>' + reacts + '</div>';
+    }
+    return h + '<div class="fitem ' + (mine?'mine':'') + '">' +
+      (!mine ? '<div class="fhead">' + avatarHTML(m,1) + ' ' + esc(m.name) + '</div>' : '') +
+      '<div class="bubble">' + esc(f.text) + '<div class="ftime">' + fmtTime(f.ts) + '</div></div>' + reacts + '</div>';
+  }).join('');
+  return topbarHTML() + '<div class="feed" id="feedList">' + (items || '<div class="fsys">עוד אין כלום — תהיו הראשונים! 🎬</div>') + '</div>' +
+    '<div class="msgbar"><input id="msgIn" placeholder="כתבו משהו לקבוצה..." onkeydown="if(event.key===\'Enter\')doSend()">' +
+    '<button onclick="doSend()">📨</button></div>' + navHTML();
+}
+function reactionsHTML(f) {
+  const rx = f.reactions || {};
+  const chips = REACTIONS.map((e, i) => {
+    const arr = rx['r'+i] || [];
+    if (!arr.length) return '';
+    return '<button class="' + (arr.includes(state.me)?'on':'') + '" onclick="doReact(\'' + f.id + '\',' + i + ')">' + e + ' ' + arr.length + '</button>';
+  }).join('');
+  const picker = state.reactFor === f.id
+    ? '<div class="rpick">' + REACTIONS.map((e, i) => '<button onclick="doReact(\'' + f.id + '\',' + i + ')">' + e + '</button>').join('') + '</div>'
+    : '';
+  return '<div class="reacts">' + chips + '<button onclick="toggleReactPick(\'' + f.id + '\')">🙂+</button></div>' + picker;
+}
+
+function groupHTML() {
+  const w = curWeek(), wi = weekInfo(w);
+  const arr = Object.values(state.members).map(m => ({m, min: memberWeek(m, w).min})).sort((a,b) => b.min - a.min);
+  const medals = ['🥇','🥈','🥉'];
+  return topbarHTML() + '<h2>הקבוצה 👥 <span class="muted" style="font-weight:400;font-size:.7em">שבוע ' + (w+1) + '</span></h2>' +
+    arr.map((x, i) => {
+      const m = x.m, lv = levelIndex(m.xp);
+      return '<div class="card" onclick="openProfile(\'' + m.uid + '\')"><div class="mcard">' + avatarHTML(m, 2) +
+        '<div class="grow"><div class="row spread"><b>' + esc(m.name) + (m.uid === wi.captainUid ? ' ⚡' : '') + '</b><span class="medal">' + (medals[i] || '') + '</span></div>' +
+        '<div class="tiny">' + LEVELS[lv].e + ' ' + LEVELS[lv].n + ' · ' + m.xp + ' XP' + (m.streakDays ? ' · 🔥 רצף ' + m.streakDays : '') + '</div>' +
+        '<div class="mbar"><i style="width:' + Math.min(100, (x.min / wi.goalMin) * 100) + '%;background:' + m.color + '"></i></div>' +
+        '<div class="tiny" style="margin-top:3px">' + x.min + ' / ' + wi.goalMin + ' דק\' השבוע</div></div></div></div>';
+    }).join('') + navHTML();
+}
+
+function profileHTML() {
+  const uid = state.profileUid || state.me;
+  const m = state.members[uid]; if (!m) return topbarHTML() + '<div class="card">לא נמצא</div>' + navHTML();
+  const mine = uid === state.me;
+  const lv = levelIndex(m.xp), next = LEVELS[lv+1];
+  const pctLv = next ? (m.xp - LEVELS[lv].xp) / (next.xp - LEVELS[lv].xp) : 1;
+  let h = topbarHTML();
+  h += '<div class="card center">' + avatarHTML(m, 3) +
+    '<div style="font-weight:900;font-size:1.3em;margin-top:6px">' + esc(m.name) + (mine?'':' <span class="tiny">(חבר קבוצה)</span>') + '</div>' +
+    '<div class="chip" style="margin-top:4px">' + LEVELS[lv].e + ' ' + LEVELS[lv].n + '</div>' +
+    '<div class="xpbar"><i style="width:' + Math.round(pctLv*100) + '%"></i></div>' +
+    '<div class="tiny">' + m.xp + ' XP' + (next ? ' · עוד ' + (next.xp - m.xp) + ' לדרגת ' + next.n : ' · דרגה מקסימלית! 👑') + '</div></div>';
+
+  // תגים
+  h += '<div class="card"><b>🏅 תגים</b><div class="badges" style="margin-top:8px">' +
+    BADGES.map(b => {
+      const got = (m.badges || []).includes(b.id);
+      return '<div class="badge ' + (got?'':'locked') + '" onclick="showToast(\'' + b.e + ' ' + b.n + ': ' + esc(b.d) + '\')">' +
+        '<div class="e">' + (got ? b.e : '🔒') + '</div><div class="n">' + b.n + '</div></div>';
+    }).join('') + '</div></div>';
+
+  // גרף דקות שבועי
+  const cw = curWeek(), goal = state.challenge.defaultGoalMin;
+  const maxV = Math.max(goal, ...Array.from({length: cw+1}, (_, i) => memberWeek(m, i).min));
+  h += '<div class="card"><b>📊 דקות פעילות לפי שבוע</b><div class="wbars">' +
+    '<div class="goalline" style="bottom:' + (goal/maxV*100) + '%"><span style="position:absolute;inset-inline-end:0;top:-14px">יעד ' + goal + '</span></div>' +
+    Array.from({length: cw+1}, (_, i) => {
+      const v = memberWeek(m, i).min;
+      return '<div class="wb"><i style="height:' + (v/maxV*100) + '%"></i><span>ש' + (i+1) + '</span></div>';
+    }).join('') + '</div></div>';
+
+  if (mine) {
+    // משקל — פרטי
+    const p = state.priv || {weighIns:[]};
+    const wis = (p.weighIns || []).slice().sort((a,b) => a.date < b.date ? -1 : 1);
+    const cur = wis.length ? wis[wis.length-1].kg : p.startWeight;
+    h += '<div class="card"><div class="row spread"><b>⚖️ מעקב משקל</b><span class="tiny">🔒 לעיניך בלבד</span></div>' +
+      '<div class="row" style="gap:14px;margin:8px 0;flex-wrap:wrap">' +
+      (p.startWeight ? '<span class="chip">התחלה: ' + p.startWeight + '</span>' : '') +
+      (cur ? '<span class="chip" style="color:var(--ac)">עכשיו: ' + cur + '</span>' : '') +
+      (p.goalWeight ? '<span class="chip" style="color:var(--ok)">יעד: ' + p.goalWeight + '</span>' : '') + '</div>' +
+      (wis.length >= 2 ? weightChartSVG(p, wis) : '<div class="tiny">הוסיפו שקילות כדי לראות גרף התקדמות</div>') +
+      '<button class="btn" style="margin-top:10px" onclick="doWeighIn()">+ שקילה חדשה</button>' +
+      (!p.startWeight ? '<button class="btn" style="margin-top:10px;margin-inline-start:8px" onclick="doSetWeights()">הגדרת התחלה ויעד</button>' : '') + '</div>';
+
+    // תמונות לפני/יעד — פרטי
+    h += '<div class="card"><div class="row spread"><b>📷 לפני ← אחרי</b><span class="tiny">🔒 לעיניך בלבד</span></div>' +
+      '<div class="row" style="gap:10px;margin-top:8px"><div class="grow"><div class="photoslot" onclick="$(\'phStart\').click()">' +
+      (p.photoStart ? '<img src="' + p.photoStart + '">' : '📸 תמונת "לפני"') + '</div><div class="tiny center" style="margin-top:4px">נקודת פתיחה</div></div>' +
+      '<div class="grow"><div class="photoslot" onclick="$(\'phGoal\').click()">' +
+      (p.photoGoal ? '<img src="' + p.photoGoal + '">' : '🎯 תמונת השראה') + '</div><div class="tiny center" style="margin-top:4px">לאן שואפים</div></div></div>' +
+      '<input id="phStart" type="file" accept="image/*" style="display:none" onchange="privPhoto(this,\'photoStart\')">' +
+      '<input id="phGoal" type="file" accept="image/*" style="display:none" onchange="privPhoto(this,\'photoGoal\')"></div>';
+  }
+  return h + navHTML();
+}
+function weightChartSVG(p, wis) {
+  const W = 340, H = 150, pad = 26;
+  const vals = wis.map(w => w.kg).concat(p.goalWeight ? [p.goalWeight] : []).concat(p.startWeight ? [p.startWeight] : []);
+  let mn = Math.min(...vals), mx = Math.max(...vals);
+  if (mx - mn < 2) { mn -= 1; mx += 1; }
+  const X = i => pad + (W - 2*pad) * (wis.length === 1 ? .5 : i / (wis.length - 1));
+  const Y = v => H - pad - (H - 2*pad) * ((v - mn) / (mx - mn));
+  const pts = wis.map((w, i) => X(i) + ',' + Y(w.kg)).join(' ');
+  return '<svg class="svgchart" viewBox="0 0 ' + W + ' ' + H + '">' +
+    (p.goalWeight ? '<line x1="' + pad + '" y1="' + Y(p.goalWeight) + '" x2="' + (W-pad) + '" y2="' + Y(p.goalWeight) + '" stroke="var(--ok)" stroke-dasharray="5 4" stroke-width="1.5" opacity=".7"/>' +
+      '<text x="' + (W-pad) + '" y="' + (Y(p.goalWeight)-5) + '" fill="var(--ok)" font-size="10" text-anchor="end">יעד ' + p.goalWeight + '</text>' : '') +
+    '<polyline points="' + pts + '" fill="none" stroke="var(--ac)" stroke-width="2.5" stroke-linejoin="round"/>' +
+    wis.map((w, i) => '<circle cx="' + X(i) + '" cy="' + Y(w.kg) + '" r="4" fill="var(--ac)"/>' +
+      '<text x="' + X(i) + '" y="' + (Y(w.kg) - 9) + '" fill="var(--tx2)" font-size="10" text-anchor="middle">' + w.kg + '</text>').join('') +
+    '</svg>';
+}
+
+function captainHTML() {
+  const w = curWeek(), wi = weekInfo(w);
+  if (wi.captainUid !== state.me && state.challenge.organizerUid !== state.me)
+    return topbarHTML() + '<div class="card center">רק הקפטן התורן יכול לנהל את השבוע ⚡</div>' + navHTML();
+  const d = state.weekDraft || (state.weekDraft = {goalMin: wi.goalMin, theme: wi.theme, bonus: wi.bonus});
+  return topbarHTML() + '<h2>⚡ ניהול שבוע ' + (w+1) + '</h2>' +
+    '<div class="card"><div class="muted" style="margin-bottom:6px">היעד השבועי לכל משתתף (דקות)</div>' +
+    '<div class="row"><button class="btn" onclick="wkGoal(-10)">−</button>' +
+    '<div class="grow center" style="font-weight:900;font-size:1.6em">' + d.goalMin + '</div>' +
+    '<button class="btn" onclick="wkGoal(10)">+</button></div>' +
+    '<div class="tiny center" style="margin-top:4px">טווח מותר: ' + GOAL_MIN_RANGE[0] + '–' + GOAL_MIN_RANGE[1] + ' · ברירת המחדל של האתגר: ' + state.challenge.defaultGoalMin + '</div></div>' +
+    '<div class="card"><div class="muted" style="margin-bottom:8px">ערכת הנושא של השבוע 🎨</div><div class="themegrid">' +
+    THEMES.map(t => '<button class="' + (d.theme===t.id?'sel':'') + '" style="background:linear-gradient(135deg,' + t.bg2 + ',' + t.ac + ')" onclick="wkTheme(\'' + t.id + '\')">' + t.n + '</button>').join('') + '</div></div>' +
+    '<div class="card"><div class="muted" style="margin-bottom:6px">משימת בונוס (רשות) — שווה ‎+20 XP</div>' +
+    '<input id="wkBonus" value="' + esc(d.bonus) + '" placeholder="למשל: אימון בחוץ בטבע 🌳" oninput="state.weekDraft.bonus=this.value"></div>' +
+    '<button class="btn primary big" onclick="doWeekPlan()">פרסום לקבוצה 📣</button>' + navHTML();
+}
+
+function settingsHTML() {
+  const me = state.members[state.me];
+  const d = state.editProfile || (state.editProfile = me ? {name: me.name, emoji: me.emoji, color: me.color} : {name:'', emoji:HERO_EMOJIS[0], color:MEMBER_COLORS[0]});
+  let h = topbarHTML() + '<h2>הגדרות ⚙️</h2>';
+  if (me) {
+    h += '<div class="card"><b>עריכת הכרטיס שלי</b>' +
+      '<div class="field" style="margin-top:8px"><label>שם</label><input id="setName" value="' + esc(d.name) + '"></div>' +
+      '<div class="emogrid">' + HERO_EMOJIS.map(e => '<button class="' + (d.emoji===e?'sel':'') + '" onclick="obSet(\'emoji\',\'' + e + '\')">' + e + '</button>').join('') + '</div>' +
+      '<div class="colorrow">' + MEMBER_COLORS.map(c => '<button class="' + (d.color===c?'sel':'') + '" style="background:' + c + '" onclick="obSet(\'color\',\'' + c + '\')"></button>').join('') + '</div>' +
+      '<button class="btn primary" onclick="doSaveProfile()">שמירה</button></div>';
+  }
+  h += '<div class="card"><b>📲 התקנה על האייפון</b><ol class="steps" style="margin-inline-start:18px">' +
+    '<li>פתחו את הכתובת הזו ב<b>ספארי</b></li>' +
+    '<li>לחצו על כפתור השיתוף <b>⬆️</b> (ריבוע עם חץ למעלה)</li>' +
+    '<li>גללו ובחרו <b>"הוסף למסך הבית"</b></li>' +
+    '<li>מעכשיו האפליקציה על מסך הבית כמו כל אפליקציה 🎉</li></ol></div>';
+  if (state.mode === 'demo') {
+    h += '<div class="card"><b>🧪 מצב הדגמה</b><div class="tiny" style="margin:6px 0 10px">האפליקציה רצה עם נתונים מקומיים לדוגמה. כדי לחבר את הקבוצה האמיתית מקימים Firebase לפי המדריך SETUP-FIREBASE.md ומדביקים את ההגדרות בקובץ.</div>' +
+      '<div class="row"><button class="btn" onclick="state.view=\'pickuser\';render()">🎭 החלפת דמות</button>' +
+      '<button class="btn danger" onclick="if(confirm(\'לאפס את נתוני ההדגמה?\'))DemoStore.reset()">איפוס נתוני הדגמה</button></div></div>';
+  } else {
+    h += '<div class="card"><div class="row spread"><div><b>חשבון</b><div class="tiny">' + esc((state.authUser && state.authUser.email) || '') + '</div></div>' +
+      '<button class="btn danger" onclick="if(confirm(\'לצאת מהחשבון?\'))Store.signOut()">יציאה</button></div></div>';
+  }
+  h += '<div class="tiny center" style="margin-top:16px">Fit or DIE! גרסה ' + APP_VERSION + ' 💀🔥</div>';
+  return h + navHTML();
+}
+
+function netErrorHTML() {
+  return splashHTML('') + '<div class="card center">לא הצלחנו לטעון את שירותי הענן 🌩️<br><span class="muted">בדקו את חיבור האינטרנט ונסו שוב</span><br><br><button class="btn primary" onclick="location.reload()">ניסיון חוזר</button></div>';
+}
+
+/* ===================== ניתוב ורינדור ===================== */
+function render() {
+  const v = state.view;
+  let h;
+  if (state.booting) h = splashHTML();
+  else if (v === 'auth') h = authViewHTML();
+  else if (v === 'join') h = joinViewHTML();
+  else if (v === 'onboard') h = onboardHTML();
+  else if (v === 'pickuser') h = pickUserHTML();
+  else if (v === 'neterror') h = netErrorHTML();
+  else if (!state.challenge || !state.members[state.me]) h = splashHTML();
+  else if (v === 'checkin') h = checkinHTML();
+  else if (v === 'feed') h = feedHTML();
+  else if (v === 'group') h = groupHTML();
+  else if (v === 'profile') h = profileHTML();
+  else if (v === 'captain') h = captainHTML();
+  else if (v === 'settings') h = settingsHTML();
+  else h = homeHTML();
+  $('app').innerHTML = h;
+  if (v === 'feed') { const el = $('feedList'); if (el) window.scrollTo(0, document.body.scrollHeight); }
+}
+function nav(v) {
+  state.reactFor = null;
+  if (v === 'profile') state.profileUid = state.me;
+  if (v === 'checkin') state.draft = {activity: (state.draft && state.draft.activity) || 'walk', minutes: 30, note:'', photo:null};
+  if (v === 'captain') state.weekDraft = null;
+  if (v === 'settings' || v === 'onboard') state.editProfile = null;
+  state.view = v; render();
+}
+function openProfile(uid) { state.profileUid = uid; state.view = 'profile'; render(); }
+
+/* ===================== פעולות ===================== */
+function setAuthTab(t) { state.authTab = t; render(); }
+function setJoinTab(t) { state.joinTab = t; render(); }
+async function doAuth() {
+  const email = $('authEmail').value.trim(), pass = $('authPass').value;
+  if (!email || pass.length < 6) { showToast('נא למלא אימייל וסיסמה (6+ תווים)', 'bad'); return; }
+  state.authBusy = true; render();
+  try {
+    if (state.authTab === 'login') await Store.signIn(email, pass);
+    else await Store.signUp(email, pass);
+  } catch (e) {
+    const msgs = {'auth/invalid-credential':'אימייל או סיסמה שגויים', 'auth/wrong-password':'סיסמה שגויה',
+      'auth/user-not-found':'לא קיים חשבון — נסו הרשמה', 'auth/email-already-in-use':'האימייל כבר רשום — נסו התחברות',
+      'auth/invalid-email':'כתובת אימייל לא תקינה', 'auth/weak-password':'הסיסמה חלשה מדי'};
+    showToast(msgs[e.code] || ('שגיאה: ' + e.message), 'bad');
+  }
+  state.authBusy = false; render();
+}
+async function doJoin() {
+  const code = $('joinCode').value.trim();
+  if (!code) { showToast('נא להזין קוד הזמנה', 'bad'); return; }
+  try { await Store.joinByCode(code); } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
+}
+async function doCreate() {
+  const f = {name: $('chName').value.trim(), code: $('chCode').value.trim(),
+    weeks: parseInt($('chWeeks').value) || 12, goal: parseInt($('chGoal').value) || 150};
+  if (!f.name || f.code.length < 3) { showToast('נא למלא שם וקוד (3+ תווים)', 'bad'); return; }
+  f.goal = Math.max(GOAL_MIN_RANGE[0], Math.min(GOAL_MIN_RANGE[1], f.goal));
+  try { await Store.createChallenge(f); } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
+}
+function obSet(k, v) { (state.editProfile = state.editProfile || {})[k] = v; syncEditInputs(); render(); }
+function syncEditInputs() {
+  const n1 = $('obName'), n2 = $('setName');
+  if (n1) state.editProfile.name = n1.value;
+  if (n2) state.editProfile.name = n2.value;
+  const w1 = $('obW1'), w2 = $('obW2');
+  if (w1) state.editProfile.startWeight = w1.value;
+  if (w2) state.editProfile.goalWeight = w2.value;
+}
+async function doOnboard() {
+  syncEditInputs();
+  const d = state.editProfile;
+  if (!d.name.trim()) { showToast('איך קוראים לך? 🙂', 'bad'); return; }
+  const priv = {};
+  if (parseFloat(d.startWeight)) { priv.startWeight = parseFloat(d.startWeight); priv.weighIns = [{date: dayKey(), kg: parseFloat(d.startWeight)}]; }
+  if (parseFloat(d.goalWeight)) priv.goalWeight = parseFloat(d.goalWeight);
+  try {
+    await Store.completeOnboard({name: d.name.trim(), emoji: d.emoji, color: d.color}, Object.keys(priv).length ? priv : null);
+    showToast('ברוך הבא לאתגר! 🎉', 'gold');
+  } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
+}
+async function doSaveProfile() {
+  syncEditInputs();
+  const d = state.editProfile;
+  if (!d.name.trim()) { showToast('חסר שם', 'bad'); return; }
+  await Store.saveProfile({name: d.name.trim(), emoji: d.emoji, color: d.color});
+  if (state.mode === 'demo') render();
+  applyTheme(); showToast('נשמר ✔', 'gold');
+}
+function draftSet(k, v) { state.draft[k] = v; render(); }
+function draftMin(v) { state.draft.minutes = Math.max(0, Math.min(600, v || 0)); render(); }
+async function draftPhoto(inp) {
+  if (!inp.files || !inp.files[0]) return;
+  showToast('מכווץ תמונה... 📷');
+  try { state.draft.photo = await compressImage(inp.files[0]); render(); }
+  catch (e) { showToast('לא הצלחנו לקרוא את התמונה', 'bad'); }
+}
+async function doCheckin() {
+  const d = state.draft;
+  const note = $('ckNote') ? $('ckNote').value : d.note;
+  if (!d.minutes || d.minutes < MIN_WORKOUT) { showToast('אימון נספר מ-' + MIN_WORKOUT + ' דקות ומעלה 💪', 'bad'); return; }
+  try {
+    const res = await Store.checkin({activity: d.activity, minutes: d.minutes, note, photo: d.photo, day: dayKey()});
+    state.draft = null; state.view = 'home';
+    if (state.mode === 'demo') render();
+    applyTheme(); render();
+    xpPop(res.xp);
+    res.events.forEach((ev, i) => setTimeout(() => {
+      if (ev.t === 'badge') { const b = badgeById(ev.id); showToast(b.e + ' תג חדש: ' + b.n + '!', 'gold'); }
+      if (ev.t === 'level') showToast('🎉 עלית לדרגת ' + LEVELS[ev.lv].n + '!', 'gold');
+      if (ev.t === 'bonus') showToast('⭐ ' + ev.txt, 'gold');
+      if (ev.t === 'group') showToast('🏆 הקבוצה עמדה ביעד! +30 לכולם', 'gold');
+    }, 600 + i * 900));
+    if (res.events.some(ev => ev.t === 'bonus' || ev.t === 'level' || ev.t === 'group')) confetti();
+  } catch (e) { showToast('שגיאה בשמירה: ' + e.message, 'bad'); }
+}
+async function doSend() {
+  const inp = $('msgIn'), text = inp.value.trim();
+  if (!text) return;
+  inp.value = '';
+  try { await Store.sendMsg(text); if (state.mode === 'demo') render(); }
+  catch (e) { showToast('ההודעה לא נשלחה: ' + e.message, 'bad'); }
+}
+function toggleReactPick(fid) { state.reactFor = state.reactFor === fid ? null : fid; render(); }
+async function doReact(fid, ri) {
+  state.reactFor = null;
+  try { await Store.react(fid, ri); if (state.mode === 'demo') render(); }
+  catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
+}
+function wkGoal(d) {
+  const w = state.weekDraft;
+  w.goalMin = Math.max(GOAL_MIN_RANGE[0], Math.min(GOAL_MIN_RANGE[1], w.goalMin + d));
+  const b = $('wkBonus'); if (b) w.bonus = b.value;
+  render();
+}
+function wkTheme(t) { state.weekDraft.theme = t; const b = $('wkBonus'); if (b) state.weekDraft.bonus = b.value; render(); }
+async function doWeekPlan() {
+  const d = state.weekDraft, b = $('wkBonus');
+  if (b) d.bonus = b.value.trim();
+  try {
+    await Store.setWeekPlan(curWeek(), {goalMin: d.goalMin, theme: d.theme, bonus: d.bonus, captainUid: weekInfo(curWeek()).captainUid});
+    state.view = 'home'; applyTheme(); render();
+    showToast('השבוע פורסם לקבוצה! 📣', 'gold');
+  } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
+}
+async function doClaimBonus() {
+  const ok = await Store.claimBonus();
+  if (ok) { xpPop(20); if (state.mode === 'demo') render(); else render(); }
+}
+async function doWeighIn() {
+  const v = parseFloat(prompt('המשקל הנוכחי (ק"ג):'));
+  if (!v || v < 20 || v > 400) return;
+  await Store.addWeighIn(v);
+  if (state.mode === 'demo') render();
+  showToast('נרשם! ⚖️', 'gold');
+}
+async function doSetWeights() {
+  const s = parseFloat(prompt('משקל התחלה (ק"ג):'));
+  const g = parseFloat(prompt('משקל יעד (ק"ג):'));
+  const patch = {};
+  if (s) { patch.startWeight = s; }
+  if (g) patch.goalWeight = g;
+  if (!Object.keys(patch).length) return;
+  await Store.savePrivate(patch);
+  if (s && !(state.priv.weighIns || []).length) await Store.addWeighIn(s);
+  if (state.mode === 'demo') render();
+}
+async function privPhoto(inp, key) {
+  if (!inp.files || !inp.files[0]) return;
+  showToast('מכווץ תמונה... 📷');
+  try {
+    const data = await compressImage(inp.files[0], 700);
+    const patch = {}; patch[key] = data;
+    await Store.savePrivate(patch);
+    if (state.mode === 'demo') render();
+  } catch (e) { showToast('לא הצלחנו לקרוא את התמונה', 'bad'); }
+}
+function viewPhoto(fid) {
+  const f = state.feed.find(x => x.id === fid);
+  if (!f || !f.photo) return;
+  const w = window.open('');
+  if (w) w.document.write('<body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="' + f.photo + '" style="max-width:100%;max-height:100vh"></body>');
+}
+
+/* ===================== אתחול ===================== */
+window.addEventListener('error', e => { if (!state.booting) showToast('שגיאה: ' + (e.message || '').slice(0, 80), 'bad'); });
+(async function boot() {
+  Store = FIREBASE_CONFIG ? FireStore : DemoStore;
+  render();
+  await Store.boot();
+  applyTheme();
+  render();
+})();
+</script>
+</body>
+</html>
