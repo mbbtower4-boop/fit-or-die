@@ -56,7 +56,7 @@ h2{font-size:1.15em;font-weight:800;margin-bottom:10px}
 .bnav{position:fixed;bottom:0;left:0;right:0;z-index:50;display:flex;justify-content:space-around;align-items:flex-end;
   max-width:520px;margin:0 auto;padding:8px 6px calc(env(safe-area-inset-bottom,0px) + 8px);
   background:rgba(14,7,34,.85);backdrop-filter:blur(14px);border-top:1px solid var(--line)}
-.bnav button{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:1.25em;color:var(--tx3);padding:4px 10px;flex:1}
+.bnav button{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:1.15em;color:var(--tx3);padding:4px 3px;flex:1;min-width:0}
 .bnav button span{font-size:.5em;font-weight:700}
 .bnav button.on{color:var(--ac)}
 .bnav .fab{flex:0 0 auto;width:58px;height:58px;border-radius:50%;background:linear-gradient(135deg,var(--ac),var(--ac2));
@@ -179,6 +179,9 @@ h2{font-size:1.15em;font-weight:800;margin-bottom:10px}
 .persona{display:flex;align-items:center;gap:12px;width:100%;text-align:start}
 .steps li{margin:8px 0 8px 0;padding-inline-start:4px;color:var(--tx2);font-size:.9em}
 .svgchart{width:100%;height:auto;display:block}
+.hero{animation:heroFloat 3.4s ease-in-out infinite}
+@keyframes heroFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.herowrap{display:flex;justify-content:center}
 </style>
 </head>
 <body>
@@ -195,7 +198,7 @@ h2{font-size:1.15em;font-weight:800;margin-bottom:10px}
      - מצב ענן (FireStore): Firebase Auth + Firestore, סנכרון חי
        בין המשתתפים. ראו SETUP-FIREBASE.md להקמה.
    ============================================================ */
-const APP_VERSION = '0.1.0';
+const APP_VERSION = '0.2.0';
 
 /* ==== הגדרות Firebase ====
    אחרי הקמת הפרויקט (ראה SETUP-FIREBASE.md) מדביקים כאן את
@@ -237,7 +240,8 @@ const BADGES = [
   {id:'perfect',  n:'שבוע מושלם',   e:'🏆', d:'עמידה ביעד הדקות השבועי'},
   {id:'streak7',  n:'על אש',        e:'🔥', d:'רצף 7 ימים פעילים ברציפות'},
   {id:'comeback', n:'הקאמבק',       e:'🦅', d:'חזרה לאימונים אחרי הפסקה של 5+ ימים'},
-  {id:'photo',    n:'צלם בשטח',     e:'📸', d:'דיווח ראשון עם תמונה'}
+  {id:'photo',    n:'צלם בשטח',     e:'📸', d:'דיווח ראשון עם תמונה'},
+  {id:'sleep',    n:'שינה מלכותית', e:'😴', d:'49 שעות שינה בשבוע אחד'}
 ];
 const HERO_EMOJIS = ['🦸‍♂️','🦸‍♀️','🦹‍♂️','🦹‍♀️','🥷','🤖','🦁','🐆','🦅','⚡','🔥','💪'];
 const MEMBER_COLORS = ['#ff5757','#ffb020','#3ddc84','#38b6ff','#b388ff','#ff7ab6','#2dd4bf','#f97316'];
@@ -245,6 +249,11 @@ const REACTIONS = ['❤️','🔥','💪','👏','😂'];  // נשמרות לפ�
 const DAY_LETTERS = ['א','ב','ג','ד','ה','ו','ש'];
 const GOAL_MIN_RANGE = [60, 300];   // טווח היעד השבועי שהקפטן יכול לקבוע
 const MIN_WORKOUT = 10;             // דקות מינימום לאימון שנספר
+/* שינה: מינימום 7 שע' ללילה, 8 = מצוין. נספרות עד 8 שע' ללילה (יותר לא תורם).
+   יעד שבועי אישי: 49 שע' (7×7); 56 = שבוע שינה מושלם. יעד קבוצתי: 49 × מספר המשתתפים. */
+const SLEEP_NIGHT_MIN = 7;
+const SLEEP_NIGHT_MAX = 8;
+const SLEEP_WEEK_GOAL = 49;
 
 /* ===================== עזרי בסיס ===================== */
 const $ = id => document.getElementById(id);
@@ -321,7 +330,6 @@ const state = {
   view: 'home', authTab: 'login', joinTab: 'join',
   me: null,                            // uid שלי
   challenge: null, members: {}, weeks: {}, feed: [],
-  priv: null,                          // הנתונים הפרטיים שלי
   profileUid: null,                    // פרופיל של מי מוצג
   reactFor: null,                      // פריט פיד עם בורר ריאקציות פתוח
   draft: null,                         // טיוטת דיווח אימון
@@ -344,10 +352,14 @@ function weekInfo(n) {
     theme: saved.theme || THEMES[n % THEMES.length].id,  // ברירת מחדל: ערכת נושא מתחלפת כל שבוע
     bonus: saved.bonus || '',
     groupBonusDone: !!saved.groupBonusDone,
+    groupSleepBonusDone: !!saved.groupSleepBonusDone,
+    panel: saved.panel || null,
+    brings: saved.brings || {},
   };
 }
-function memberWeek(m, n) { return (m.weekStats && m.weekStats[n]) || {min:0, daysArr:[], goalBonus:false, spreadBonus:false, bonusClaim:false}; }
+function memberWeek(m, n) { return (m.weekStats && m.weekStats[n]) || {min:0, daysArr:[], goalBonus:false, spreadBonus:false, bonusClaim:false, sleep:0, sleepLog:{}, sleepGoalBonus:false}; }
 function groupWeekMin(n) { return Object.values(state.members).reduce((s, m) => s + memberWeek(m, n).min, 0); }
+function groupWeekSleep(n) { return Math.round(Object.values(state.members).reduce((s, m) => s + (memberWeek(m, n).sleep || 0), 0) * 10) / 10; }
 function daysLeftInWeek() {
   const end = Date.parse(state.challenge.startDate) + (curWeek()+1) * 7 * 864e5;
   return Math.max(0, Math.ceil((end - Date.now()) / 864e5));
@@ -390,6 +402,32 @@ function applyCheckin(member, weekN, weekGoal, checkin) {
   if (levelIndex(m.xp) > lvBefore) events.push({t:'level', lv: levelIndex(m.xp)});
   return {m, xp, events};
 }
+
+/* ניקוד שינה ללילה: מ-7 שע' יש XP, 8 = מושלם. מעל 8 לא נספר. */
+function sleepXp(h) { return h >= 8 ? 8 : h >= 7.5 ? 6 : h >= SLEEP_NIGHT_MIN ? 5 : 0; }
+/* דיווח שינה — פונקציה טהורה כמו applyCheckin. דיווח חוזר לאותו לילה מחליף
+   את הקודם (הפרשי שעות ו-XP מחושבים, אי אפשר "לחלוב" נקודות). */
+function applySleep(member, weekN, hoursRaw, day) {
+  const m = JSON.parse(JSON.stringify(member));
+  m.badges = m.badges || []; m.weekStats = m.weekStats || {};
+  const ws = m.weekStats[weekN] = Object.assign({min:0, daysArr:[], goalBonus:false, spreadBonus:false, bonusClaim:false, sleep:0, sleepLog:{}, sleepGoalBonus:false}, m.weekStats[weekN]);
+  ws.sleepLog = ws.sleepLog || {};
+  const counted = Math.min(hoursRaw, SLEEP_NIGHT_MAX);
+  const prev = ws.sleepLog[day] || {h:0, xp:0};
+  const nxp = sleepXp(counted);
+  ws.sleep = Math.round((ws.sleep - prev.h + counted) * 10) / 10;
+  ws.sleepLog[day] = {h: counted, xp: nxp};
+  let dxp = nxp - prev.xp;
+  const events = [];
+  if (ws.sleep >= SLEEP_WEEK_GOAL && !ws.sleepGoalBonus) {
+    ws.sleepGoalBonus = true; dxp += 30; events.push({t:'bonus', txt:'יעד השינה השבועי הושג! +30'});
+    if (!m.badges.includes('sleep')) { m.badges.push('sleep'); events.push({t:'badge', id:'sleep'}); }
+  }
+  const lvBefore = levelIndex(m.xp || 0);
+  m.xp = (m.xp || 0) + dxp;
+  if (levelIndex(m.xp) > lvBefore) events.push({t:'level', lv: levelIndex(m.xp)});
+  return {m, xp: dxp, events};
+}
 /* אירועי מנוע → פריטי פיד מערכתיים + טוסטים (ניסוח ניטרלי-מגדרית) */
 function eventFeedText(name, ev) {
   if (ev.t === 'level') return '🎉 דרגה חדשה ל' + name + ': ' + LEVELS[ev.lv].n + ' ' + LEVELS[ev.lv].e + '!';
@@ -402,7 +440,7 @@ let Store = null;
 
 /* ---------- מצב הדגמה: localStorage ---------- */
 const DemoStore = {
-  LS: 'fitordie_demo_v1',
+  LS: 'fitordie_demo_v2',
   data: null,
   async boot() {
     state.mode = 'demo';
@@ -414,14 +452,12 @@ const DemoStore = {
     state.challenge = d.challenge; state.members = d.members;
     state.weeks = d.weeks; state.feed = d.feed;
     state.me = d.me;
-    state.priv = d.me ? (d.privates[d.me] || (d.privates[d.me] = {weighIns:[]})) : null;
     state.view = d.me ? 'home' : 'pickuser';
     state.booting = false;
   },
   save() { try { localStorage.setItem(this.LS, JSON.stringify(this.data)); } catch (e) {} },
   pickUser(uid) {
     this.data.me = uid; state.me = uid;
-    state.priv = this.data.privates[uid] || (this.data.privates[uid] = {weighIns:[]});
     this.save(); state.view = 'home'; applyTheme(); render();
   },
   reset() { localStorage.removeItem(this.LS); location.reload(); },
@@ -480,10 +516,49 @@ const DemoStore = {
     return true;
   },
   async saveProfile(patch) { Object.assign(state.members[state.me], patch); this.save(); },
-  async savePrivate(patch) { Object.assign(state.priv, patch); this.data.privates[state.me] = state.priv; this.save(); },
+  async saveShared(patch) { Object.assign(state.members[state.me], patch); this.save(); },
   async addWeighIn(kg) {
-    state.priv.weighIns = state.priv.weighIns || [];
-    state.priv.weighIns.push({date: dayKey(), kg});
+    const m = state.members[state.me];
+    m.weighIns = m.weighIns || [];
+    m.weighIns.push({date: dayKey(), kg});
+    this.save();
+  },
+  async sendPhoto(data) {
+    state.feed.push({id: uidGen(), type:'msg', uid: state.me, ts: Date.now(), text:'', photo: data, reactions:{}});
+    this.save();
+  },
+  async sleep(h) {
+    const w = curWeek(), before = groupWeekSleep(w);
+    const res = applySleep(state.members[state.me], w, h, dayKey());
+    state.members[state.me] = res.m;
+    this.data.members = state.members;
+    res.events.forEach(ev => {
+      const txt = eventFeedText(res.m.name, ev);
+      if (txt) state.feed.push({id: uidGen(), type:'system', ts: Date.now(), text: txt, reactions:{}});
+    });
+    const goal = SLEEP_WEEK_GOAL * Object.keys(state.members).length;
+    if (!weekInfo(w).groupSleepBonusDone && before < goal && groupWeekSleep(w) >= goal) {
+      state.weeks[w] = Object.assign({}, state.weeks[w], {groupSleepBonusDone: true});
+      Object.values(state.members).forEach(m => m.xp += 20);
+      state.feed.push({id: uidGen(), type:'system', ts: Date.now(), text:'😴 הקבוצה עמדה ביעד השינה השבועי! +20 XP לכל אחד!', reactions:{}});
+      res.events.push({t:'gsleep'});
+    }
+    this.save();
+    return res;
+  },
+  async setPanel(n, panel) {
+    state.weeks[n] = Object.assign({}, state.weeks[n], {panel});
+    this.data.weeks = state.weeks;
+    const host = state.members[panel.host];
+    state.feed.push({id: uidGen(), type:'system', ts: Date.now(),
+      text:'🥗 פאנל שבועי: אצל ' + (host ? host.name : '?') + (panel.when ? ' · ' + panel.when : '') + (panel.motif ? ' · "' + panel.motif + '"' : ''), reactions:{}});
+    this.save();
+  },
+  async setBring(n, text) {
+    const wk = state.weeks[n] = Object.assign({}, state.weeks[n]);
+    wk.brings = Object.assign({}, wk.brings);
+    wk.brings[state.me] = text;
+    this.data.weeks = state.weeks;
     this.save();
   },
 
@@ -494,16 +569,20 @@ const DemoStore = {
     const ch = {id:'demo', name:'החבר\'ה של פעם 💪', code:'DEMO1', startDate: dayKey(start),
       weeksTotal: 12, defaultGoalMin: 150, organizerUid:'u1', captainOrder:['u1','u2','u3','u4']};
     const mk = (uid, name, emoji, color) => ({uid, name, emoji, color, joinedAt: Date.parse(ch.startDate),
-      xp:0, badges:[], streakDays:0, lastActiveDay:null, weekStats:{}});
+      xp:0, badges:[], streakDays:0, lastActiveDay:null, weekStats:{}, weighIns:[]});
     const members = {
       u1: mk('u1','דני','🦸‍♂️','#38b6ff'), u2: mk('u2','מאיה','🦹‍♀️','#ff7ab6'),
       u3: mk('u3','רון','🥷','#3ddc84'),  u4: mk('u4','שירה','🦸‍♀️','#ffb020'),
     };
-    const weeks = {2: {bonus:'אימון בחוץ בטבע 🌳'}};
-    const d = {challenge: ch, members, weeks, feed: [], me: null,
-      privates: {u1: {startWeight:92, goalWeight:85, weighIns:[]}, u2:{weighIns:[]}, u3:{weighIns:[]}, u4:{weighIns:[]}}};
-    // שקילות של דני
-    [[14,92],[7,91.2],[2,90.4]].forEach(([ago,kg]) => d.privates.u1.weighIns.push({date: dayKey(new Date(Date.now()-ago*864e5)), kg}));
+    const weeks = {2: {bonus:'אימון בחוץ בטבע 🌳',
+      panel: {host:'u3', motif:'ערב שייקים ירוקים 🥤', when:'חמישי 20:00'},
+      brings: {u2:'סלט פירות', u4:'חטיפי אנרגיה ביתיים'}}};
+    const d = {challenge: ch, members, weeks, feed: [], me: null};
+    // משקל (משותף לקבוצה): דני עם מעקב מלא, מאיה עם התחלה
+    members.u1.startWeight = 92; members.u1.goalWeight = 85;
+    [[14,92],[7,91.2],[2,90.4]].forEach(([ago,kg]) => members.u1.weighIns.push({date: dayKey(new Date(Date.now()-ago*864e5)), kg}));
+    members.u2.startWeight = 68; members.u2.goalWeight = 63;
+    [[12,68],[4,67.1]].forEach(([ago,kg]) => members.u2.weighIns.push({date: dayKey(new Date(Date.now()-ago*864e5)), kg}));
     // היסטוריית דיווחים: [ימים אחורה, uid, פעילות, דקות, הערה]
     const hist = [
       [15,'u1','run',35,'פתיחת אתגר!'], [15,'u2','walk',45,''], [14,'u3','gym',60,'חזרה לברזלים 😤'],
@@ -538,6 +617,13 @@ const DemoStore = {
         const txt = eventFeedText(res.m.name, ev);
         if (txt) d.feed.push({id:'e'+idx+ev.t, type:'system', ts: ts+1, text: txt, reactions:{}});
       });
+    });
+    // דיווחי שינה אחרונים (דרך המנוע, כמו הדיווחים)
+    const sleepSeed = [['u1',3,8],['u1',2,7.5],['u1',1,6.5],['u2',2,8],['u2',1,8],['u3',1,7],['u4',2,7.5],['u4',1,7]];
+    sleepSeed.sort((a,b) => b[1] - a[1]).forEach(([uid, ago, h]) => {
+      const day = dayKey(new Date(Date.now() - ago * 864e5));
+      const wN = Math.max(0, Math.floor(daysBetween(ch.startDate, day) / 7));
+      members[uid] = applySleep(members[uid], wN, h, day).m;
     });
     // ריאקציות לדוגמה
     const cks = d.feed.filter(f => f.type === 'checkin');
@@ -614,10 +700,6 @@ const FireStore = {
       const f = []; s.forEach(d => f.push(Object.assign({id: d.id}, d.data())));
       f.reverse(); state.feed = f; render();
     }));
-    this.unsubs.push(this.chRef().collection('members').doc(state.me).collection('private').doc('data').onSnapshot(s => {
-      state.priv = s.exists ? s.data() : {weighIns:[]};
-      render();
-    }));
   },
   detach() { this.unsubs.forEach(u => { try { u(); } catch(e) {} }); this.unsubs = []; this.cid = null; },
 
@@ -639,12 +721,12 @@ const FireStore = {
     state.pendingJoin = {cid: q.docs[0].id, code};
     state.view = 'onboard'; render();
   },
-  async completeOnboard(profile, privData) {
+  async completeOnboard(profile, extraData) {
     const {cid, code} = state.pendingJoin;
     const mRef = this.db.collection('challenges').doc(cid).collection('members').doc(state.me);
-    await mRef.set({name: profile.name, emoji: profile.emoji, color: profile.color, joinCode: code,
-      joinedAt: Date.now(), xp: 0, badges: [], streakDays: 0, lastActiveDay: null, weekStats: {}});
-    if (privData) await mRef.collection('private').doc('data').set(Object.assign({weighIns:[]}, privData));
+    // המשקל והתמונות משותפים לחברי האתגר — יושבים ישירות על כרטיס המשתתף
+    await mRef.set(Object.assign({name: profile.name, emoji: profile.emoji, color: profile.color, joinCode: code,
+      joinedAt: Date.now(), xp: 0, badges: [], streakDays: 0, lastActiveDay: null, weekStats: {}, weighIns: []}, extraData || {}));
     await this.db.collection('challenges').doc(cid).update({captainOrder: this.FV.arrayUnion(state.me)});
     await this.db.doc('users/' + state.me).set({cid});
     state.pendingJoin = null;
@@ -714,10 +796,52 @@ const FireStore = {
     return true;
   },
   async saveProfile(patch) { await this.chRef().collection('members').doc(state.me).update(patch); },
-  async savePrivate(patch) { await this.chRef().collection('members').doc(state.me).collection('private').doc('data').set(patch, {merge: true}); },
+  async saveShared(patch) { await this.chRef().collection('members').doc(state.me).update(patch); },
   async addWeighIn(kg) {
-    await this.chRef().collection('members').doc(state.me).collection('private').doc('data')
-      .set({weighIns: this.FV.arrayUnion({date: dayKey(), kg})}, {merge: true});
+    await this.chRef().collection('members').doc(state.me).update({weighIns: this.FV.arrayUnion({date: dayKey(), kg})});
+  },
+  async sendPhoto(data) {
+    await this.chRef().collection('feed').add({type:'msg', uid: state.me, ts: Date.now(), text:'', photo: data, reactions:{}});
+  },
+  async sleep(h) {
+    const w = curWeek(), before = groupWeekSleep(w);
+    const res = applySleep(state.members[state.me], w, h, dayKey());
+    const b = this.db.batch();
+    b.update(this.chRef().collection('members').doc(state.me),
+      {xp: res.m.xp, badges: res.m.badges, ['weekStats.' + w]: res.m.weekStats[w]});
+    res.events.forEach(ev => {
+      const txt = eventFeedText(res.m.name, ev);
+      if (txt) b.set(this.chRef().collection('feed').doc(), {type:'system', ts: Date.now()+1, text: txt, reactions:{}});
+    });
+    await b.commit();
+    const goal = SLEEP_WEEK_GOAL * Object.keys(state.members).length;
+    if (!weekInfo(w).groupSleepBonusDone && before < goal && before - (memberWeek(state.members[state.me], w).sleep || 0) + (res.m.weekStats[w].sleep || 0) >= goal - 0.001) {
+      const wRef = this.chRef().collection('weeks').doc(String(w));
+      try {
+        await this.db.runTransaction(async tx => {
+          const wd = await tx.get(wRef);
+          if (wd.exists && wd.data().groupSleepBonusDone) return;
+          tx.set(wRef, {groupSleepBonusDone: true}, {merge: true});
+        });
+        const b2 = this.db.batch();
+        Object.keys(state.members).forEach(uid =>
+          b2.update(this.chRef().collection('members').doc(uid), {xp: this.FV.increment(20)}));
+        b2.set(this.chRef().collection('feed').doc(), {type:'system', ts: Date.now()+2,
+          text:'😴 הקבוצה עמדה ביעד השינה השבועי! +20 XP לכל אחד!', reactions:{}});
+        await b2.commit();
+        res.events.push({t:'gsleep'});
+      } catch (e) {}
+    }
+    return res;
+  },
+  async setPanel(n, panel) {
+    await this.chRef().collection('weeks').doc(String(n)).set({panel}, {merge: true});
+    const host = state.members[panel.host];
+    await this.chRef().collection('feed').add({type:'system', ts: Date.now(),
+      text:'🥗 פאנל שבועי: אצל ' + (host ? host.name : '?') + (panel.when ? ' · ' + panel.when : '') + (panel.motif ? ' · "' + panel.motif + '"' : ''), reactions:{}});
+  },
+  async setBring(n, text) {
+    await this.chRef().collection('weeks').doc(String(n)).set({brings: {[state.me]: text}}, {merge: true});
   },
 };
 
@@ -741,6 +865,53 @@ function avatarHTML(m, size) {
   return '<span class="ava s' + (size||2) + '" style="--c:' + m.color + ';box-shadow:0 0 ' + glow + 'px ' + m.color + '">' +
     m.emoji + '<span class="lvl">' + LEVELS[lv].e + '</span></span>';
 }
+/* הבהרה/הכהיה של צבע hex באחוזים (לגוונים של חליפת הגיבור) */
+function shade(hex, p) {
+  const n = parseInt(hex.slice(1), 16);
+  const f = c => Math.max(0, Math.min(255, Math.round(p > 0 ? c + (255 - c) * p / 100 : c * (1 + p / 100))));
+  return '#' + ((1 << 24) + (f((n >> 16) & 255) << 16) + (f((n >> 8) & 255) << 8) + f(n & 255)).toString(16).slice(1);
+}
+/* דמות גיבור קומיקס ב-SVG. הדמות משתדרגת ויזואלית עם הדרגה:
+   ד'2 חגורת זהב · ד'3 כתפיות · ד'4 גלימה · ד'5 הילה · ד'6 ברקים · ד'7 כוכבים · ד'8 כתר */
+function heroSVG(m, size) {
+  const lv = levelIndex(m.xp || 0);
+  const c = m.color, dk = shade(c, -32), lt = shade(c, 40), ol = '#14092e';
+  const st = 'stroke="' + ol + '" stroke-width="2.5" stroke-linejoin="round"';
+  let s = '';
+  // גלימה (דרגה 4+)
+  if (lv >= 3) s += '<path d="M40,58 Q14,96 27,133 L60,113 L93,133 Q106,96 80,58 Z" fill="' + dk + '" ' + st + '/>';
+  // רגליים + מגפיים
+  s += '<rect x="46" y="96" width="12" height="34" rx="5" fill="' + c + '" ' + st + '/>' +
+       '<rect x="62" y="96" width="12" height="34" rx="5" fill="' + c + '" ' + st + '/>' +
+       '<rect x="43" y="122" width="17" height="13" rx="5" fill="' + dk + '" ' + st + '/>' +
+       '<rect x="60" y="122" width="17" height="13" rx="5" fill="' + dk + '" ' + st + '/>';
+  // זרועות בפוזת גיבור (אגרופים על המותניים)
+  s += '<rect x="24" y="60" width="13" height="30" rx="6.5" fill="' + c + '" ' + st + ' transform="rotate(20 30 75)"/>' +
+       '<rect x="83" y="60" width="13" height="30" rx="6.5" fill="' + c + '" ' + st + ' transform="rotate(-20 90 75)"/>' +
+       '<circle cx="37" cy="92" r="7" fill="' + dk + '" ' + st + '/>' +
+       '<circle cx="83" cy="92" r="7" fill="' + dk + '" ' + st + '/>';
+  // גוף + הבהוב תאורה
+  s += '<path d="M40,56 L80,56 L75,102 L45,102 Z" fill="' + c + '" ' + st + '/>' +
+       '<path d="M44,59 L60,59 L57,80 L47,80 Z" fill="' + lt + '" opacity=".55"/>';
+  // חגורה (זהב מדרגה 2)
+  s += '<rect x="43" y="95" width="34" height="8" rx="3.5" fill="' + (lv >= 1 ? '#ffd23f' : dk) + '" ' + st + '/>';
+  // כתפיות (דרגה 3+)
+  if (lv >= 2) s += '<ellipse cx="41" cy="57" rx="10" ry="6.5" fill="' + dk + '" ' + st + '/>' +
+                    '<ellipse cx="79" cy="57" rx="10" ry="6.5" fill="' + dk + '" ' + st + '/>';
+  // ראש במסכה מלאה + עיניים הרואיות
+  s += '<circle cx="60" cy="38" r="19" fill="' + c + '" ' + st + '/>' +
+       '<ellipse cx="52" cy="37" rx="6.5" ry="4.2" fill="#fff" stroke="' + ol + '" stroke-width="1.2" transform="rotate(-10 52 37)"/>' +
+       '<ellipse cx="68" cy="37" rx="6.5" ry="4.2" fill="#fff" stroke="' + ol + '" stroke-width="1.2" transform="rotate(10 68 37)"/>';
+  // סמל חזה — האימוג'י האישי
+  s += '<circle cx="60" cy="76" r="12" fill="#fff" ' + st + '/>' +
+       '<text x="60" y="81" font-size="14" text-anchor="middle">' + m.emoji + '</text>';
+  // ברקים (דרגה 6+), כוכבים (7+), כתר (8)
+  if (lv >= 5) s += '<text x="12" y="72" font-size="15">⚡</text><text x="94" y="52" font-size="15">⚡</text>';
+  if (lv >= 6) s += '<text x="22" y="24" font-size="13" fill="#ffd23f">✦</text><text x="88" y="18" font-size="15" fill="#ffd23f">✦</text><text x="98" y="90" font-size="11" fill="#ffd23f">✦</text>';
+  if (lv >= 7) s += '<text x="60" y="16" font-size="20" text-anchor="middle">👑</text>';
+  const aura = lv >= 4 ? 'filter:drop-shadow(0 0 ' + (lv >= 6 ? 16 : 9) + 'px ' + c + ')' : '';
+  return '<svg class="hero" width="' + size + '" height="' + Math.round(size * 1.25) + '" viewBox="0 0 120 150" style="' + aura + '">' + s + '</svg>';
+}
 function ringHTML(pct, size, stroke, color, centerHTML) {
   const r = (size - stroke) / 2, c = 2 * Math.PI * r, off = c * (1 - Math.min(pct, 1));
   return '<div class="ringwrap" style="width:' + size + 'px;height:' + size + 'px">' +
@@ -755,7 +926,7 @@ function topbarHTML() {
     (state.mode === 'demo' ? '<div class="demobanner">🧪 מצב הדגמה — הנתונים נשמרים רק במכשיר הזה</div>' : '');
 }
 function navHTML() {
-  const items = [['home','🏠','בית'], ['feed','💬','פיד'], null, ['group','👥','קבוצה'], ['profile','🦸','אני']];
+  const items = [['home','🏠','בית'], ['feed','💬','פיד'], null, ['panel','🥗','פאנל'], ['group','👥','קבוצה'], ['profile','🦸','אני']];
   return '<nav class="bnav">' + items.map(it => {
     if (!it) return '<button class="fab" onclick="nav(\'checkin\')">＋</button>';
     const on = state.view === it[0] || (it[0] === 'profile' && state.view === 'profile' && state.profileUid === state.me);
@@ -809,7 +980,7 @@ function onboardHTML() {
     HERO_EMOJIS.map(e => '<button class="' + (d.emoji===e?'sel':'') + '" onclick="obSet(\'emoji\',\'' + e + '\')">' + e + '</button>').join('') + '</div></div>' +
     '<div class="field"><label>צבע אישי</label><div class="colorrow">' +
     MEMBER_COLORS.map(c => '<button class="' + (d.color===c?'sel':'') + '" style="background:' + c + '" onclick="obSet(\'color\',\'' + c + '\')"></button>').join('') + '</div></div></div>' +
-    '<div class="card"><div class="row spread"><b>נתוני פתיחה 🔒</b><span class="tiny">פרטי — לעיניך בלבד</span></div>' +
+    '<div class="card"><div class="row spread"><b>נתוני פתיחה 🤝</b><span class="tiny">גלוי לחברי הקבוצה</span></div>' +
     '<div class="row" style="margin-top:8px"><div class="field grow"><label>משקל נוכחי (ק"ג)</label><input id="obW1" type="number" inputmode="decimal" value="' + d.startWeight + '" placeholder="לא חובה"></div>' +
     '<div class="field grow"><label>משקל יעד (ק"ג)</label><input id="obW2" type="number" inputmode="decimal" value="' + d.goalWeight + '" placeholder="לא חובה"></div></div></div>' +
     '<button class="btn primary big" onclick="doOnboard()">זה אני — קדימה! 💥</button>';
@@ -819,7 +990,7 @@ function pickUserHTML() {
   return topbarHTML() + '<h2>מצב הדגמה — בחרו דמות 🎭</h2>' +
     '<div class="muted" style="margin-bottom:12px">כדי להתרשם מהאפליקציה בוחרים דמות. אפשר להחליף בכל רגע מההגדרות.</div>' +
     Object.values(state.members).map(m =>
-      '<div class="card"><button class="persona" onclick="DemoStore.pickUser(\'' + m.uid + '\')">' + avatarHTML(m, 2) +
+      '<div class="card"><button class="persona" onclick="DemoStore.pickUser(\'' + m.uid + '\')">' + heroSVG(m, 62) +
       '<div class="grow"><b>' + esc(m.name) + '</b><div class="tiny">' + LEVELS[levelIndex(m.xp)].n + ' · ' + m.xp + ' XP</div></div><span style="font-size:1.4em">←</span></button></div>').join('');
 }
 
@@ -839,7 +1010,10 @@ function homeHTML() {
   h += '<div class="card weekcard"><div class="row spread"><b>שבוע ' + (w+1) + '/' + ch.weeksTotal + ' · ' + esc(ch.name) + '</b>' +
     '<span class="chip">🎨 ' + themeById(wi.theme).n + '</span></div>' +
     '<div class="row spread" style="margin-top:7px"><span class="row" style="gap:6px">' + (cap ? avatarHTML(cap,1) + '<span class="muted">קפטן השבוע: <b style="color:var(--tx)">' + esc(cap.name) + '</b></span>' : '') + '</span>' +
-    '<span class="chip">' + (dl <= 1 ? '⏰ היום האחרון!' : '⏳ עוד ' + dl + ' ימים') + '</span></div></div>';
+    '<span class="chip">' + (dl <= 1 ? '⏰ היום האחרון!' : '⏳ עוד ' + dl + ' ימים') + '</span></div>' +
+    (wi.panel && state.members[wi.panel.host]
+      ? '<button class="chip" style="margin-top:8px" onclick="nav(\'panel\')">🥗 פאנל אצל ' + esc(state.members[wi.panel.host].name) + (wi.panel.when ? ' · ' + esc(wi.panel.when) : '') + ' ←</button>'
+      : '') + '</div>';
 
   if (wi.captainUid === state.me)
     h += '<button class="captainbtn" onclick="nav(\'captain\')">⚡ זה השבוע שלך, קפטן! ניהול השבוע ←</button>';
@@ -865,6 +1039,17 @@ function homeHTML() {
     '<div class="row" style="margin-top:7px;gap:12px;flex-wrap:wrap">' + Object.values(state.members).map(m =>
       '<span class="tiny"><span style="color:' + m.color + '">●</span> ' + esc(m.name) + ' ' + memberWeek(m,w).min + '</span>').join('') + '</div>' +
     (wi.groupBonusDone ? '<div class="chip" style="margin-top:8px;color:var(--ok)">🏆 היעד הקבוצתי הושג! +30 לכולם</div>' : '') + '</div>';
+
+  // שינה — אישי + קבוצתי
+  const mySleep = ws.sleep || 0, gSleep = groupWeekSleep(w);
+  const sleepGroupGoal = SLEEP_WEEK_GOAL * Object.keys(state.members).length;
+  h += '<div class="card"><div class="row spread"><b>😴 שינה</b><button class="btn" onclick="doSleep()">+ דיווח שינה</button></div>' +
+    '<div class="row spread" style="margin-top:9px"><span class="muted">אני</span><span class="tiny">' + mySleep + ' / ' + SLEEP_WEEK_GOAL + ' שע\' · 56 = מושלם</span></div>' +
+    '<div class="mbar"><i style="width:' + Math.min(100, (mySleep / SLEEP_WEEK_GOAL) * 100) + '%;background:var(--ac)"></i></div>' +
+    '<div class="row spread" style="margin-top:7px"><span class="muted">הקבוצה</span><span class="tiny">' + gSleep + ' / ' + sleepGroupGoal + ' שע\'</span></div>' +
+    '<div class="mbar"><i style="width:' + Math.min(100, (gSleep / sleepGroupGoal) * 100) + '%;background:#b388ff"></i></div>' +
+    '<div class="tiny" style="margin-top:6px">7 שע\' ומעלה בלילה = XP · 8 = מקסימום (יותר מזה לא נספר)</div>' +
+    (wi.groupSleepBonusDone ? '<div class="chip" style="margin-top:8px;color:var(--ok)">😴 יעד השינה הקבוצתי הושג! +20 לכולם</div>' : '') + '</div>';
 
   // משימת בונוס
   if (wi.bonus) {
@@ -929,10 +1114,15 @@ function feedHTML() {
     }
     return h + '<div class="fitem ' + (mine?'mine':'') + '">' +
       (!mine ? '<div class="fhead">' + avatarHTML(m,1) + ' ' + esc(m.name) + '</div>' : '') +
-      '<div class="bubble">' + esc(f.text) + '<div class="ftime">' + fmtTime(f.ts) + '</div></div>' + reacts + '</div>';
+      '<div class="bubble">' +
+      (f.photo ? '<img class="ckphoto" src="' + f.photo + '" onclick="viewPhoto(\'' + f.id + '\')">' : '') +
+      (f.text ? esc(f.text) : '') +
+      '<div class="ftime">' + fmtTime(f.ts) + '</div></div>' + reacts + '</div>';
   }).join('');
   return topbarHTML() + '<div class="feed" id="feedList">' + (items || '<div class="fsys">עוד אין כלום — תהיו הראשונים! 🎬</div>') + '</div>' +
-    '<div class="msgbar"><input id="msgIn" placeholder="כתבו משהו לקבוצה..." onkeydown="if(event.key===\'Enter\')doSend()">' +
+    '<div class="msgbar"><button onclick="$(\'feedPhoto\').click()" title="שיתוף תמונה מהאימון">📷</button>' +
+    '<input id="feedPhoto" type="file" accept="image/*" style="display:none" onchange="feedPhotoSend(this)">' +
+    '<input id="msgIn" placeholder="כתבו משהו לקבוצה..." onkeydown="if(event.key===\'Enter\')doSend()">' +
     '<button onclick="doSend()">📨</button></div>' + navHTML();
 }
 function reactionsHTML(f) {
@@ -954,12 +1144,12 @@ function groupHTML() {
   const medals = ['🥇','🥈','🥉'];
   return topbarHTML() + '<h2>הקבוצה 👥 <span class="muted" style="font-weight:400;font-size:.7em">שבוע ' + (w+1) + '</span></h2>' +
     arr.map((x, i) => {
-      const m = x.m, lv = levelIndex(m.xp);
-      return '<div class="card" onclick="openProfile(\'' + m.uid + '\')"><div class="mcard">' + avatarHTML(m, 2) +
-        '<div class="grow"><div class="row spread"><b>' + esc(m.name) + (m.uid === wi.captainUid ? ' ⚡' : '') + '</b><span class="medal">' + (medals[i] || '') + '</span></div>' +
+      const m = x.m, lv = levelIndex(m.xp), mw = memberWeek(m, w);
+      return '<div class="card" onclick="openProfile(\'' + m.uid + '\')"><div class="mcard">' + heroSVG(m, 76) +
+        '<div class="grow"><div class="row spread"><b style="font-size:1.1em">' + esc(m.name) + (m.uid === wi.captainUid ? ' ⚡' : '') + '</b><span class="medal">' + (medals[i] || '') + '</span></div>' +
         '<div class="tiny">' + LEVELS[lv].e + ' ' + LEVELS[lv].n + ' · ' + m.xp + ' XP' + (m.streakDays ? ' · 🔥 רצף ' + m.streakDays : '') + '</div>' +
         '<div class="mbar"><i style="width:' + Math.min(100, (x.min / wi.goalMin) * 100) + '%;background:' + m.color + '"></i></div>' +
-        '<div class="tiny" style="margin-top:3px">' + x.min + ' / ' + wi.goalMin + ' דק\' השבוע</div></div></div></div>';
+        '<div class="tiny" style="margin-top:3px">💪 ' + x.min + ' / ' + wi.goalMin + ' דק\' · 😴 ' + (mw.sleep || 0) + ' / ' + SLEEP_WEEK_GOAL + ' שע\'</div></div></div></div>';
     }).join('') + navHTML();
 }
 
@@ -969,12 +1159,18 @@ function profileHTML() {
   const mine = uid === state.me;
   const lv = levelIndex(m.xp), next = LEVELS[lv+1];
   const pctLv = next ? (m.xp - LEVELS[lv].xp) / (next.xp - LEVELS[lv].xp) : 1;
+  const mw = memberWeek(m, curWeek());
   let h = topbarHTML();
-  h += '<div class="card center">' + avatarHTML(m, 3) +
-    '<div style="font-weight:900;font-size:1.3em;margin-top:6px">' + esc(m.name) + (mine?'':' <span class="tiny">(חבר קבוצה)</span>') + '</div>' +
+  h += '<div class="card center"><div class="herowrap">' + heroSVG(m, 168) + '</div>' +
+    '<div style="font-weight:900;font-size:1.45em;margin-top:8px">' + esc(m.name) + (mine?'':' <span class="tiny">(חבר קבוצה)</span>') + '</div>' +
     '<div class="chip" style="margin-top:4px">' + LEVELS[lv].e + ' ' + LEVELS[lv].n + '</div>' +
     '<div class="xpbar"><i style="width:' + Math.round(pctLv*100) + '%"></i></div>' +
-    '<div class="tiny">' + m.xp + ' XP' + (next ? ' · עוד ' + (next.xp - m.xp) + ' לדרגת ' + next.n : ' · דרגה מקסימלית! 👑') + '</div></div>';
+    '<div class="tiny">' + m.xp + ' XP' + (next ? ' · עוד ' + (next.xp - m.xp) + ' לדרגת ' + next.n : ' · דרגה מקסימלית! 👑') + '</div>' +
+    '<div class="row" style="justify-content:center;gap:8px;margin-top:8px;flex-wrap:wrap">' +
+    '<span class="chip">💪 ' + (mw.min || 0) + ' דק\' השבוע</span><span class="chip">😴 ' + (mw.sleep || 0) + ' שע\' השבוע</span>' +
+    (m.streakDays ? '<span class="chip">🔥 רצף ' + m.streakDays + '</span>' : '') + '</div>' +
+    (next ? '<div class="tiny" style="margin-top:6px">בדרגה הבאה הגיבור מקבל ' + (lv >= 6 ? 'כתר 👑' : lv >= 5 ? 'כוכבים ✦' : lv >= 4 ? 'ברקים ⚡' : lv >= 3 ? 'הילה זוהרת ✨' : lv >= 2 ? 'גלימה 🦸' : lv >= 1 ? 'כתפיות שריון' : 'חגורת זהב') + '!</div>' : '') +
+    '</div>';
 
   // תגים
   h += '<div class="card"><b>🏅 תגים</b><div class="badges" style="margin-top:8px">' +
@@ -994,29 +1190,26 @@ function profileHTML() {
       return '<div class="wb"><i style="height:' + (v/maxV*100) + '%"></i><span>ש' + (i+1) + '</span></div>';
     }).join('') + '</div></div>';
 
-  if (mine) {
-    // משקל — פרטי
-    const p = state.priv || {weighIns:[]};
-    const wis = (p.weighIns || []).slice().sort((a,b) => a.date < b.date ? -1 : 1);
-    const cur = wis.length ? wis[wis.length-1].kg : p.startWeight;
-    h += '<div class="card"><div class="row spread"><b>⚖️ מעקב משקל</b><span class="tiny">🔒 לעיניך בלבד</span></div>' +
-      '<div class="row" style="gap:14px;margin:8px 0;flex-wrap:wrap">' +
-      (p.startWeight ? '<span class="chip">התחלה: ' + p.startWeight + '</span>' : '') +
-      (cur ? '<span class="chip" style="color:var(--ac)">עכשיו: ' + cur + '</span>' : '') +
-      (p.goalWeight ? '<span class="chip" style="color:var(--ok)">יעד: ' + p.goalWeight + '</span>' : '') + '</div>' +
-      (wis.length >= 2 ? weightChartSVG(p, wis) : '<div class="tiny">הוסיפו שקילות כדי לראות גרף התקדמות</div>') +
-      '<button class="btn" style="margin-top:10px" onclick="doWeighIn()">+ שקילה חדשה</button>' +
-      (!p.startWeight ? '<button class="btn" style="margin-top:10px;margin-inline-start:8px" onclick="doSetWeights()">הגדרת התחלה ויעד</button>' : '') + '</div>';
+  // משקל ותמונות — משותפים לכל חברי האתגר (עריכה רק לבעלים)
+  const wis = (m.weighIns || []).slice().sort((a,b) => a.date < b.date ? -1 : 1);
+  const cur = wis.length ? wis[wis.length-1].kg : m.startWeight;
+  h += '<div class="card"><div class="row spread"><b>⚖️ מעקב משקל</b><span class="tiny">🤝 משותף לקבוצה</span></div>' +
+    '<div class="row" style="gap:14px;margin:8px 0;flex-wrap:wrap">' +
+    (m.startWeight ? '<span class="chip">התחלה: ' + m.startWeight + '</span>' : '') +
+    (cur ? '<span class="chip" style="color:var(--ac)">עכשיו: ' + cur + '</span>' : '') +
+    (m.goalWeight ? '<span class="chip" style="color:var(--ok)">יעד: ' + m.goalWeight + '</span>' : '') + '</div>' +
+    (wis.length >= 2 ? weightChartSVG(m, wis) :
+      '<div class="tiny">' + (mine ? 'הוסיפו שקילות כדי לראות גרף התקדמות' : 'אין עדיין מספיק שקילות לגרף') + '</div>') +
+    (mine ? '<button class="btn" style="margin-top:10px" onclick="doWeighIn()">+ שקילה חדשה</button>' +
+      (!m.startWeight ? '<button class="btn" style="margin-top:10px;margin-inline-start:8px" onclick="doSetWeights()">הגדרת התחלה ויעד</button>' : '') : '') + '</div>';
 
-    // תמונות לפני/יעד — פרטי
-    h += '<div class="card"><div class="row spread"><b>📷 לפני ← אחרי</b><span class="tiny">🔒 לעיניך בלבד</span></div>' +
-      '<div class="row" style="gap:10px;margin-top:8px"><div class="grow"><div class="photoslot" onclick="$(\'phStart\').click()">' +
-      (p.photoStart ? '<img src="' + p.photoStart + '">' : '📸 תמונת "לפני"') + '</div><div class="tiny center" style="margin-top:4px">נקודת פתיחה</div></div>' +
-      '<div class="grow"><div class="photoslot" onclick="$(\'phGoal\').click()">' +
-      (p.photoGoal ? '<img src="' + p.photoGoal + '">' : '🎯 תמונת השראה') + '</div><div class="tiny center" style="margin-top:4px">לאן שואפים</div></div></div>' +
-      '<input id="phStart" type="file" accept="image/*" style="display:none" onchange="privPhoto(this,\'photoStart\')">' +
-      '<input id="phGoal" type="file" accept="image/*" style="display:none" onchange="privPhoto(this,\'photoGoal\')"></div>';
-  }
+  h += '<div class="card"><div class="row spread"><b>📷 לפני ← אחרי</b><span class="tiny">🤝 משותף לקבוצה</span></div>' +
+    '<div class="row" style="gap:10px;margin-top:8px"><div class="grow"><div class="photoslot"' + (mine ? ' onclick="$(\'phStart\').click()"' : '') + '>' +
+    (m.photoStart ? '<img src="' + m.photoStart + '">' : (mine ? '📸 תמונת "לפני"' : '📸 אין עדיין')) + '</div><div class="tiny center" style="margin-top:4px">נקודת פתיחה</div></div>' +
+    '<div class="grow"><div class="photoslot"' + (mine ? ' onclick="$(\'phGoal\').click()"' : '') + '>' +
+    (m.photoGoal ? '<img src="' + m.photoGoal + '">' : (mine ? '🎯 תמונת השראה' : '🎯 אין עדיין')) + '</div><div class="tiny center" style="margin-top:4px">לאן שואפים</div></div></div>' +
+    (mine ? '<input id="phStart" type="file" accept="image/*" style="display:none" onchange="sharedPhoto(this,\'photoStart\')">' +
+    '<input id="phGoal" type="file" accept="image/*" style="display:none" onchange="sharedPhoto(this,\'photoGoal\')">' : '') + '</div>';
   return h + navHTML();
 }
 function weightChartSVG(p, wis) {
@@ -1052,6 +1245,43 @@ function captainHTML() {
     '<div class="card"><div class="muted" style="margin-bottom:6px">משימת בונוס (רשות) — שווה ‎+20 XP</div>' +
     '<input id="wkBonus" value="' + esc(d.bonus) + '" placeholder="למשל: אימון בחוץ בטבע 🌳" oninput="state.weekDraft.bonus=this.value"></div>' +
     '<button class="btn primary big" onclick="doWeekPlan()">פרסום לקבוצה 📣</button>' + navHTML();
+}
+
+/* הפאנל השבועי — המפגש הפיזי של הקבוצה: אצל מי, מה המוטיב, ומי מביא מה */
+function panelHTML() {
+  const w = curWeek(), wi = weekInfo(w);
+  const panel = wi.panel, brings = wi.brings;
+  const isCap = wi.captainUid === state.me || state.challenge.organizerUid === state.me;
+  let h = topbarHTML() + '<h2>🥗 הפאנל השבועי <span class="muted" style="font-weight:400;font-size:.7em">שבוע ' + (w+1) + '</span></h2>' +
+    '<div class="tiny" style="margin:-4px 0 12px">המפגש הפיזי של הקבוצה — כל אחד מביא משהו בריא 🙂</div>';
+  if (panel && state.members[panel.host]) {
+    const host = state.members[panel.host];
+    h += '<div class="card weekcard"><div class="row" style="gap:12px">' + avatarHTML(host, 2) +
+      '<div><div class="tiny">מתארחים אצל</div><b style="font-size:1.2em">' + esc(host.name) + '</b></div></div>' +
+      '<div class="row" style="gap:8px;margin-top:9px;flex-wrap:wrap">' +
+      (panel.when ? '<span class="chip">🕒 ' + esc(panel.when) + '</span>' : '') +
+      (panel.motif ? '<span class="chip">🎪 ' + esc(panel.motif) + '</span>' : '') + '</div></div>';
+  } else {
+    h += '<div class="card center muted">הקפטן עוד לא קבע את פרטי המפגש השבוע 🤷</div>';
+  }
+  h += '<div class="card"><b>🧺 מי מביא מה</b>' +
+    Object.values(state.members).map(m => {
+      const mine = m.uid === state.me, val = brings[m.uid] || '';
+      return '<div class="row" style="margin-top:10px">' + avatarHTML(m, 1) +
+        (mine
+          ? '<div class="grow"><input id="bringIn" value="' + esc(val) + '" placeholder="מה להביא? (משהו בריא 🙂)"></div><button class="btn" onclick="doBring()">שמירה</button>'
+          : '<div class="grow"><b>' + esc(m.name) + '</b> — ' + (val ? esc(val) : '<span class="tiny">עוד לא נרשם</span>') + '</div>');
+    }).join('') + '</div>';
+  if (isCap) {
+    const d = state.panelDraft || (state.panelDraft = {host: (panel && panel.host) || wi.captainUid, motif: (panel && panel.motif) || '', when: (panel && panel.when) || ''});
+    h += '<div class="card"><b>⚡ הגדרת הפאנל (קפטן)</b>' +
+      '<div class="tiny" style="margin:8px 0 4px">אצל מי מתארחים?</div><div class="chips">' +
+      Object.values(state.members).map(m => '<button class="' + (d.host === m.uid ? 'sel' : '') + '" onclick="panelHost(\'' + m.uid + '\')">' + m.emoji + ' ' + esc(m.name) + '</button>').join('') + '</div>' +
+      '<div class="field"><label>מוטיב / נושא המפגש</label><input id="panelMotif" value="' + esc(d.motif) + '" placeholder="למשל: ערב שייקים אחרי אימון"></div>' +
+      '<div class="field"><label>מתי?</label><input id="panelWhen" value="' + esc(d.when) + '" placeholder="למשל: חמישי 20:00"></div>' +
+      '<button class="btn primary" onclick="doPanelSave()">פרסום הפאנל 📣</button></div>';
+  }
+  return h + navHTML();
 }
 
 function settingsHTML() {
@@ -1099,6 +1329,7 @@ function render() {
   else if (!state.challenge || !state.members[state.me]) h = splashHTML();
   else if (v === 'checkin') h = checkinHTML();
   else if (v === 'feed') h = feedHTML();
+  else if (v === 'panel') h = panelHTML();
   else if (v === 'group') h = groupHTML();
   else if (v === 'profile') h = profileHTML();
   else if (v === 'captain') h = captainHTML();
@@ -1112,6 +1343,7 @@ function nav(v) {
   if (v === 'profile') state.profileUid = state.me;
   if (v === 'checkin') state.draft = {activity: (state.draft && state.draft.activity) || 'walk', minutes: 30, note:'', photo:null};
   if (v === 'captain') state.weekDraft = null;
+  if (v === 'panel') state.panelDraft = null;
   if (v === 'settings' || v === 'onboard') state.editProfile = null;
   state.view = v; render();
 }
@@ -1191,17 +1423,69 @@ async function doCheckin() {
   try {
     const res = await Store.checkin({activity: d.activity, minutes: d.minutes, note, photo: d.photo, day: dayKey()});
     state.draft = null; state.view = 'home';
-    if (state.mode === 'demo') render();
     applyTheme(); render();
-    xpPop(res.xp);
-    res.events.forEach((ev, i) => setTimeout(() => {
-      if (ev.t === 'badge') { const b = badgeById(ev.id); showToast(b.e + ' תג חדש: ' + b.n + '!', 'gold'); }
-      if (ev.t === 'level') showToast('🎉 עלית לדרגת ' + LEVELS[ev.lv].n + '!', 'gold');
-      if (ev.t === 'bonus') showToast('⭐ ' + ev.txt, 'gold');
-      if (ev.t === 'group') showToast('🏆 הקבוצה עמדה ביעד! +30 לכולם', 'gold');
-    }, 600 + i * 900));
-    if (res.events.some(ev => ev.t === 'bonus' || ev.t === 'level' || ev.t === 'group')) confetti();
+    if (res.xp > 0) xpPop(res.xp);
+    celebrate(res.events);
   } catch (e) { showToast('שגיאה בשמירה: ' + e.message, 'bad'); }
+}
+/* טוסטים וקונפטי לאירועי מנוע (משותף לדיווח אימון ולדיווח שינה) */
+function celebrate(events) {
+  events.forEach((ev, i) => setTimeout(() => {
+    if (ev.t === 'badge') { const b = badgeById(ev.id); showToast(b.e + ' תג חדש: ' + b.n + '!', 'gold'); }
+    if (ev.t === 'level') showToast('🎉 עלית לדרגת ' + LEVELS[ev.lv].n + '! הגיבור שלך השתדרג 🦸', 'gold');
+    if (ev.t === 'bonus') showToast('⭐ ' + ev.txt, 'gold');
+    if (ev.t === 'group') showToast('🏆 הקבוצה עמדה ביעד! +30 לכולם', 'gold');
+    if (ev.t === 'gsleep') showToast('😴 הקבוצה עמדה ביעד השינה! +20 לכולם', 'gold');
+  }, 600 + i * 900));
+  if (events.some(ev => ev.t !== 'badge')) confetti();
+}
+async function doSleep() {
+  const ws = memberWeek(state.members[state.me], curWeek());
+  const prev = (ws.sleepLog || {})[dayKey()];
+  if (prev && !confirm('כבר דווח ' + prev.h + ' שע\' על הלילה האחרון — לעדכן?')) return;
+  const v = parseFloat(prompt('כמה שעות ישנת הלילה? (למשל 7.5)\n7 ומעלה = XP · 8 = מושלם'));
+  if (isNaN(v) || v <= 0) return;
+  if (v > 14) { showToast('ערך לא סביר 🤨', 'bad'); return; }
+  try {
+    const res = await Store.sleep(v);
+    render();
+    if (res.xp > 0) xpPop(res.xp);
+    else if (v < SLEEP_NIGHT_MIN) showToast('נרשם. מתחת ל-7 שע\' אין XP — לילה טוב הערב! 😴');
+    celebrate(res.events);
+  } catch (e) { showToast('שגיאה בשמירה: ' + e.message, 'bad'); }
+}
+async function feedPhotoSend(inp) {
+  if (!inp.files || !inp.files[0]) return;
+  showToast('מכווץ תמונה... 📷');
+  try {
+    const data = await compressImage(inp.files[0], 1100);
+    await Store.sendPhoto(data);
+    if (state.mode === 'demo') render();
+    showToast('שותף לקבוצה! 📸', 'gold');
+  } catch (e) { showToast('לא הצלחנו לקרוא את התמונה', 'bad'); }
+}
+function panelHost(uid) { syncPanelInputs(); state.panelDraft.host = uid; render(); }
+function syncPanelInputs() {
+  const m = $('panelMotif'), w = $('panelWhen');
+  if (m) state.panelDraft.motif = m.value;
+  if (w) state.panelDraft.when = w.value;
+}
+async function doPanelSave() {
+  syncPanelInputs();
+  const d = state.panelDraft;
+  try {
+    await Store.setPanel(curWeek(), {host: d.host, motif: d.motif.trim(), when: d.when.trim()});
+    if (state.mode === 'demo') render();
+    showToast('הפאנל פורסם לקבוצה! 🥗', 'gold');
+  } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
+}
+async function doBring() {
+  const v = $('bringIn').value.trim();
+  try {
+    await Store.setBring(curWeek(), v);
+    if (state.mode === 'demo') render();
+    showToast(v ? 'נרשם! 🧺' : 'נמחק');
+  } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
 }
 async function doSend() {
   const inp = $('msgIn'), text = inp.value.trim();
@@ -1250,17 +1534,17 @@ async function doSetWeights() {
   if (s) { patch.startWeight = s; }
   if (g) patch.goalWeight = g;
   if (!Object.keys(patch).length) return;
-  await Store.savePrivate(patch);
-  if (s && !(state.priv.weighIns || []).length) await Store.addWeighIn(s);
+  await Store.saveShared(patch);
+  if (s && !(state.members[state.me].weighIns || []).length) await Store.addWeighIn(s);
   if (state.mode === 'demo') render();
 }
-async function privPhoto(inp, key) {
+async function sharedPhoto(inp, key) {
   if (!inp.files || !inp.files[0]) return;
   showToast('מכווץ תמונה... 📷');
   try {
     const data = await compressImage(inp.files[0], 700);
     const patch = {}; patch[key] = data;
-    await Store.savePrivate(patch);
+    await Store.saveShared(patch);
     if (state.mode === 'demo') render();
   } catch (e) { showToast('לא הצלחנו לקרוא את התמונה', 'bad'); }
 }
