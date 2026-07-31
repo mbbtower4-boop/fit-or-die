@@ -201,6 +201,23 @@ h2{font-size:1.15em;font-weight:800;margin-bottom:10px}
 .avgrid button{display:flex;flex-direction:column;align-items:center;gap:2px;background:var(--card2);border:2px solid transparent;border-radius:14px;padding:8px 2px 6px;font-size:.72em;font-weight:700}
 .avgrid button.sel{border-color:var(--ac);background:rgba(255,210,63,.12)}
 .avgrid .hero{animation:none}
+.chip.sel{border:1.5px solid var(--ac);color:var(--ac);background:rgba(255,210,63,.14)}
+.wkhist{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+
+/* ===== התאמה למסך מחשב (v0.5) =====
+   מסכי הכרטיסים נפרסים לשתי עמודות; הצ'אט נשאר עמודה קריאה. */
+@media (min-width: 900px) {
+  #app{max-width:1024px}
+  body[data-view=feed] #app{max-width:700px}
+  body[data-view=checkin] #app, body[data-view=auth] #app, body[data-view=join] #app,
+  body[data-view=onboard] #app, body[data-view=captain] #app, body[data-view=pickuser] #app{max-width:620px}
+  body[data-view=home] #app, body[data-view=group] #app, body[data-view=panel] #app,
+  body[data-view=profile] #app, body[data-view=settings] #app{column-count:2;column-gap:18px}
+  .card{break-inside:avoid}
+  .topbar, .demobanner, h2, .captainbtn, #app > .btn.big, #app > .tiny{column-span:all}
+  .bnav, .msgbar{max-width:700px}
+  .bnav{border-radius:18px 18px 0 0;border:1px solid var(--line);border-bottom:none}
+}
 </style>
 </head>
 <body>
@@ -217,7 +234,7 @@ h2{font-size:1.15em;font-weight:800;margin-bottom:10px}
      - מצב ענן (FireStore): Firebase Auth + Firestore, סנכרון חי
        בין המשתתפים. ראו SETUP-FIREBASE.md להקמה.
    ============================================================ */
-const APP_VERSION = '0.4.1';
+const APP_VERSION = '0.5.0';
 
 /* ==== הגדרות Firebase ====
    אחרי הקמת הפרויקט (ראה SETUP-FIREBASE.md) מדביקים כאן את
@@ -254,12 +271,11 @@ const LEVELS = [
   {xp:1400, n:'אגדה',      e:'🌟'}, {xp:2000, n:'אלוף־על',  e:'👑'}
 ];
 const BADGES = [
-  {id:'first',    n:'ראשון בשטח',   e:'🎬', d:'האימון הראשון שלך באתגר'},
+  {id:'first',    n:'ראשון בשטח',   e:'🎬', d:'הדיווח הראשון בקבוצה בשבוע חדש (מיום ראשון) — שווה +15'},
   {id:'spread',   n:'מפוזר ומנצח',  e:'📅', d:'3 ימים פעילים או יותר בשבוע אחד'},
   {id:'perfect',  n:'שבוע מושלם',   e:'🏆', d:'עמידה ביעד הדקות השבועי'},
   {id:'streak7',  n:'על אש',        e:'🔥', d:'רצף 7 ימים פעילים ברציפות'},
-  {id:'comeback', n:'הקאמבק',       e:'🦅', d:'חזרה לאימונים אחרי הפסקה של 5+ ימים'},
-  {id:'photo',    n:'צלם בשטח',     e:'📸', d:'דיווח ראשון עם תמונה'},
+  {id:'comeback', n:'הקאמבק',       e:'🦅', d:'חזרה לאימונים אחרי 3+ ימים בלי אימון'},
   {id:'sleep',    n:'שינה מלכותית', e:'😴', d:'49 שעות שינה בשבוע אחד'}
 ];
 const HERO_EMOJIS = ['🦸‍♂️','🦸‍♀️','🦹‍♂️','🦹‍♀️','🥷','🤖','🦁','🐆','🦅','⚡','🔥','💪'];
@@ -422,7 +438,8 @@ function applyCheckin(member, weekN, weekGoal, checkin) {
       events.push({t:'shield'});
     }
     else {
-      if (gap != null && gap >= 5 && !m.badges.includes('comeback')) { m.badges.push('comeback'); events.push({t:'badge', id:'comeback'}); }
+      // קאמבק: חזרה אחרי 3+ ימים בלי אימון (פער של 4+ ימים מהיום הפעיל האחרון)
+      if (gap != null && gap >= 4 && !m.badges.includes('comeback')) { m.badges.push('comeback'); events.push({t:'badge', id:'comeback'}); }
       m.streakDays = 1;
     }
     m.lastActiveDay = day;
@@ -432,8 +449,6 @@ function applyCheckin(member, weekN, weekGoal, checkin) {
   if (!ws.daysArr.includes(day)) ws.daysArr.push(day);
   ws.min += checkin.minutes;
 
-  if (!m.badges.includes('first')) { m.badges.push('first'); events.push({t:'badge', id:'first'}); }
-  if (checkin.photo && !m.badges.includes('photo')) { m.badges.push('photo'); events.push({t:'badge', id:'photo'}); }
   if (ws.daysArr.length >= 3 && !ws.spreadBonus) { ws.spreadBonus = true; xp += 20; events.push({t:'bonus', txt:'3 ימים פעילים השבוע! +20'}); }
   if (ws.min >= weekGoal && !ws.goalBonus) {
     ws.goalBonus = true; xp += 50; events.push({t:'bonus', txt:'עמידה ביעד השבועי! +50'});
@@ -527,7 +542,7 @@ let Store = null;
 
 /* ---------- מצב הדגמה: localStorage ---------- */
 const DemoStore = {
-  LS: 'fitordie_demo_v3',
+  LS: 'fitordie_demo_v4',
   data: null,
   async boot() {
     state.mode = 'demo';
@@ -553,10 +568,18 @@ const DemoStore = {
     const w = curWeek(), wi = weekInfo(w);
     const groupBefore = groupWeekMin(w);
     const res = applyCheckin(state.members[state.me], w, wi.goalMin, c);
+    // ראשון בשטח: הדיווח הראשון בקבוצה השבוע (מיום ראשון) — תג + 15 XP
+    if (groupBefore === 0) {
+      res.m.xp += 15;
+      if (!res.m.badges.includes('first')) { res.m.badges.push('first'); res.events.push({t:'badge', id:'first'}); }
+      res.events.push({t:'firstweek'});
+    }
     state.members[state.me] = res.m;
     this.data.members = state.members;
     state.feed.push({id: uidGen(), type:'checkin', uid: state.me, ts: Date.now(), week: w,
       activity: c.activity, minutes: c.minutes, text: c.note || '', photo: c.photo || null, reactions:{}});
+    if (groupBefore === 0)
+      state.feed.push({id: uidGen(), type:'system', ts: Date.now(), text:'🎬 ראשון בשטח — ' + res.m.name + ' עם הדיווח הראשון של שבוע ' + (w+1) + '! +15', reactions:{}});
     const name = res.m.name;
     res.events.forEach(ev => {
       const txt = eventFeedText(name, ev);
@@ -604,10 +627,10 @@ const DemoStore = {
   },
   async saveProfile(patch) { Object.assign(state.members[state.me], patch); this.save(); },
   async saveShared(patch) { Object.assign(state.members[state.me], patch); this.save(); },
-  async addWeighIn(kg) {
+  async addMeasure(entry) {
     const m = state.members[state.me];
-    m.weighIns = m.weighIns || [];
-    m.weighIns.push({date: dayKey(), kg});
+    m.measures = m.measures || [];
+    m.measures.push(entry);
     this.save();
   },
   async sendPhoto(data) {
@@ -688,7 +711,7 @@ const DemoStore = {
       weeksTotal: 12, defaultGoalMin: 150, organizerUid:'u1', captainOrder:['u1','u2','u3','u4'],
       dailyHabit: DEFAULT_DAILY_HABIT};
     const mk = (uid, name, emoji, color, avatar) => ({uid, name, emoji, color, avatar, joinedAt: Date.parse(ch.startDate),
-      xp:0, badges:[], streakDays:0, lastActiveDay:null, weekStats:{}, weighIns:[]});
+      xp:0, badges:[], streakDays:0, lastActiveDay:null, weekStats:{}, measures:[]});
     const members = {
       u1: mk('u1','דני','🦸‍♂️','#38b6ff','hero'),    u2: mk('u2','מאיה','🦹‍♀️','#ff7ab6','princess'),
       u3: mk('u3','רון','🥷','#3ddc84','robot'),     u4: mk('u4','שירה','🦸‍♀️','#ffb020','lion'),
@@ -697,11 +720,13 @@ const DemoStore = {
       panel: {host:'u3', motif:'ערב שייקים ירוקים 🥤', when:'חמישי 20:00', location:''},
       brings: {u2:'סלט פירות', u4:'חטיפי אנרגיה ביתיים'}}};
     const d = {challenge: ch, members, weeks, feed: [], me: null};
-    // משקל (משותף לקבוצה): דני עם מעקב מלא, מאיה עם התחלה
+    // מדידות גוף (משותפות): דני עם מעקב מלא כולל היקפים, מאיה משקל בלבד
     members.u1.startWeight = 92; members.u1.goalWeight = 85;
-    [[14,92],[7,91.2],[2,90.4]].forEach(([ago,kg]) => members.u1.weighIns.push({date: dayKey(new Date(Date.now()-ago*864e5)), kg}));
+    members.u1.startArm = 36; members.u1.startBelly = 104; members.u1.startWaist = 98;
+    [[14,{weight:92, arm:36, belly:104, waist:98}], [7,{weight:91.2, belly:103}], [2,{weight:90.4, arm:36.5, belly:102, waist:96.5}]]
+      .forEach(([ago, e]) => members.u1.measures.push(Object.assign({date: dayKey(new Date(Date.now()-ago*864e5))}, e)));
     members.u2.startWeight = 68; members.u2.goalWeight = 63;
-    [[12,68],[4,67.1]].forEach(([ago,kg]) => members.u2.weighIns.push({date: dayKey(new Date(Date.now()-ago*864e5)), kg}));
+    [[12,{weight:68}], [4,{weight:67.1}]].forEach(([ago, e]) => members.u2.measures.push(Object.assign({date: dayKey(new Date(Date.now()-ago*864e5))}, e)));
     // היסטוריית דיווחים: [ימים אחורה, uid, פעילות, דקות, הערה]
     const hist = [
       [15,'u1','run',35,'פתיחת אתגר!'], [15,'u2','walk',45,''], [14,'u3','gym',60,'חזרה לברזלים 😤'],
@@ -723,6 +748,7 @@ const DemoStore = {
       ...hist.map(h => ({kind:'ck', ago:h[0], uid:h[1], act:h[2], min:h[3], note:h[4]})),
       ...msgs.map(m => ({kind:'msg', ago:m[0], uid:m[1], text:m[2]})),
     ].sort((a,b) => b.ago - a.ago);
+    const seenWeeks = new Set();
     all.forEach((it, idx) => {
       const ts = Date.now() - it.ago * 864e5 - (12 - (idx % 10)) * 36e5;
       const day = dayKey(new Date(ts));
@@ -732,6 +758,12 @@ const DemoStore = {
       const res = applyCheckin(members[it.uid], wN, goal, {day, minutes: it.min, photo: null});
       members[it.uid] = res.m;
       d.feed.push({id:'c'+idx, type:'checkin', uid: it.uid, ts, week: wN, activity: it.act, minutes: it.min, text: it.note, photo: null, reactions:{}});
+      if (!seenWeeks.has(wN)) {   // ראשון בשטח — פותח השבוע
+        seenWeeks.add(wN);
+        members[it.uid].xp += 15;
+        if (!members[it.uid].badges.includes('first')) members[it.uid].badges.push('first');
+        d.feed.push({id:'fw'+idx, type:'system', ts: ts+1, text:'🎬 ראשון בשטח — ' + members[it.uid].name + ' עם הדיווח הראשון של שבוע ' + (wN+1) + '! +15', reactions:{}});
+      }
       res.events.forEach(ev => {
         const txt = eventFeedText(res.m.name, ev);
         if (txt) d.feed.push({id:'e'+idx+ev.t, type:'system', ts: ts+1, text: txt, reactions:{}});
@@ -852,8 +884,8 @@ const FireStore = {
     const {cid, code} = state.pendingJoin;
     const mRef = this.db.collection('challenges').doc(cid).collection('members').doc(state.me);
     // המשקל והתמונות משותפים לחברי האתגר — יושבים ישירות על כרטיס המשתתף
-    await mRef.set(Object.assign({name: profile.name, emoji: profile.emoji, color: profile.color, joinCode: code,
-      joinedAt: Date.now(), xp: 0, badges: [], streakDays: 0, lastActiveDay: null, weekStats: {}, weighIns: []}, extraData || {}));
+    await mRef.set(Object.assign({name: profile.name, emoji: profile.emoji, color: profile.color, avatar: profile.avatar || 'hero', joinCode: code,
+      joinedAt: Date.now(), xp: 0, badges: [], streakDays: 0, lastActiveDay: null, weekStats: {}, measures: []}, extraData || {}));
     await this.db.collection('challenges').doc(cid).update({captainOrder: this.FV.arrayUnion(state.me)});
     await this.db.doc('users/' + state.me).set({cid});
     state.pendingJoin = null;
@@ -865,6 +897,12 @@ const FireStore = {
     const w = curWeek(), wi = weekInfo(w);
     const groupBefore = groupWeekMin(w);
     const res = applyCheckin(state.members[state.me], w, wi.goalMin, c);
+    // ראשון בשטח: הדיווח הראשון בקבוצה השבוע — תג + 15 XP
+    if (groupBefore === 0) {
+      res.m.xp += 15;
+      if (!res.m.badges.includes('first')) { res.m.badges.push('first'); res.events.push({t:'badge', id:'first'}); }
+      res.events.push({t:'firstweek'});
+    }
     const b = this.db.batch();
     const mRef = this.chRef().collection('members').doc(state.me);
     b.update(mRef, {xp: res.m.xp, badges: res.m.badges, streakDays: res.m.streakDays,
@@ -875,6 +913,9 @@ const FireStore = {
       const txt = eventFeedText(res.m.name, ev);
       if (txt) b.set(this.chRef().collection('feed').doc(), {type:'system', ts: Date.now()+1, text: txt, reactions:{}});
     });
+    if (groupBefore === 0)
+      b.set(this.chRef().collection('feed').doc(), {type:'system', ts: Date.now()+1,
+        text:'🎬 ראשון בשטח — ' + res.m.name + ' עם הדיווח הראשון של שבוע ' + (w+1) + '! +15', reactions:{}});
     await b.commit();
     // בונוס קבוצתי בטרנזקציה — פעם אחת בלבד לשבוע
     const groupGoal = wi.goalMin * Object.keys(state.members).length;
@@ -924,8 +965,8 @@ const FireStore = {
   },
   async saveProfile(patch) { await this.chRef().collection('members').doc(state.me).update(patch); },
   async saveShared(patch) { await this.chRef().collection('members').doc(state.me).update(patch); },
-  async addWeighIn(kg) {
-    await this.chRef().collection('members').doc(state.me).update({weighIns: this.FV.arrayUnion({date: dayKey(), kg})});
+  async addMeasure(entry) {
+    await this.chRef().collection('members').doc(state.me).update({measures: this.FV.arrayUnion(entry)});
   },
   async sendPhoto(data) {
     await this.chRef().collection('feed').add({type:'msg', uid: state.me, ts: Date.now(), text:'', photo: data, reactions:{}});
@@ -1235,7 +1276,7 @@ function avatarPickerHTML(d, xp) {
     heroSVG({avatar: a.id, color: d.color, emoji: d.emoji, xp: xp || 0}, 44) + a.n + '</button>').join('') + '</div>';
 }
 function onboardHTML() {
-  const d = state.editProfile || (state.editProfile = {name:'', emoji: HERO_EMOJIS[0], color: MEMBER_COLORS[3], avatar:'hero', startWeight:'', goalWeight:''});
+  const d = state.editProfile || (state.editProfile = {name:'', emoji: HERO_EMOJIS[0], color: MEMBER_COLORS[3], avatar:'hero', startWeight:'', goalWeight:'', startArm:'', startBelly:'', startWaist:''});
   return topbarHTML() + '<h2>בניית כרטיס הגיבור שלך 🦸</h2>' +
     '<div class="card"><div class="field"><label>שם (כמו שהחברים יראו)</label><input id="obName" value="' + esc(d.name) + '" placeholder="השם שלך"></div>' +
     '<div class="field"><label>בחרו דמות</label>' + avatarPickerHTML(d, 0) + '</div>' +
@@ -1245,7 +1286,10 @@ function onboardHTML() {
     MEMBER_COLORS.map(c => '<button class="' + (d.color===c?'sel':'') + '" style="background:' + c + '" onclick="obSet(\'color\',\'' + c + '\')"></button>').join('') + '</div></div></div>' +
     '<div class="card"><div class="row spread"><b>נתוני פתיחה 🤝</b><span class="tiny">גלוי לחברי הקבוצה</span></div>' +
     '<div class="row" style="margin-top:8px"><div class="field grow"><label>משקל נוכחי (ק"ג)</label><input id="obW1" type="number" inputmode="decimal" value="' + d.startWeight + '" placeholder="לא חובה"></div>' +
-    '<div class="field grow"><label>משקל יעד (ק"ג)</label><input id="obW2" type="number" inputmode="decimal" value="' + d.goalWeight + '" placeholder="לא חובה"></div></div></div>' +
+    '<div class="field grow"><label>משקל יעד (ק"ג)</label><input id="obW2" type="number" inputmode="decimal" value="' + d.goalWeight + '" placeholder="לא חובה"></div></div>' +
+    '<div class="row"><div class="field grow"><label>היקף זרוע (ס"מ)</label><input id="obArm" type="number" inputmode="decimal" value="' + d.startArm + '" placeholder="—"></div>' +
+    '<div class="field grow"><label>היקף בטן (ס"מ)</label><input id="obBelly" type="number" inputmode="decimal" value="' + d.startBelly + '" placeholder="—"></div>' +
+    '<div class="field grow"><label>היקף מותניים (ס"מ)</label><input id="obWaist" type="number" inputmode="decimal" value="' + d.startWaist + '" placeholder="—"></div></div></div>' +
     '<button class="btn primary big" onclick="doOnboard()">זה אני — קדימה! 💥</button>';
 }
 
@@ -1308,10 +1352,15 @@ function homeHTML() {
       '<span class="tiny"><span style="color:' + m.color + '">●</span> ' + esc(m.name) + ' ' + memberWeek(m,w).min + '</span>').join('') + '</div>' +
     (wi.groupBonusDone ? '<div class="chip" style="margin-top:8px;color:var(--ok)">🏆 היעד הקבוצתי הושג! +30 לכולם</div>' : '') + '</div>';
 
-  // שינה — אישי + קבוצתי
+  // אתגר יומי: שינה — סטטוס הלילה + מדדים שבועיים (אישי וקבוצתי)
   const mySleep = ws.sleep || 0, gSleep = groupWeekSleep(w);
   const sleepGroupGoal = SLEEP_WEEK_GOAL * Object.keys(state.members).length;
-  h += '<div class="card"><div class="row spread"><b>😴 שינה</b><button class="btn" onclick="doSleep()">+ דיווח שינה</button></div>' +
+  const todaySleep = (ws.sleepLog || {})[dayKey()];
+  h += '<div class="card"><div class="row spread"><b>😴 אתגר יומי: שינה</b>' +
+    (todaySleep
+      ? '<span class="chip" style="color:var(--ok)">הלילה: ' + todaySleep.h + ' שע\'' + (todaySleep.xp ? ' +' + todaySleep.xp + ' XP' : '') + ' ✔</span>'
+      : '<button class="btn" onclick="doSleep()">+ דיווח שינה</button>') + '</div>' +
+    (todaySleep ? '<div class="row" style="margin-top:6px"><button class="chip" onclick="doSleep()">עדכון הדיווח</button></div>' : '') +
     '<div class="row spread" style="margin-top:9px"><span class="muted">אני</span><span class="tiny">' + mySleep + ' / ' + SLEEP_WEEK_GOAL + ' שע\' · 56 = מושלם</span></div>' +
     '<div class="mbar"><i style="width:' + Math.min(100, (mySleep / SLEEP_WEEK_GOAL) * 100) + '%;background:var(--ac)"></i></div>' +
     '<div class="row spread" style="margin-top:7px"><span class="muted">הקבוצה</span><span class="tiny">' + gSleep + ' / ' + sleepGroupGoal + ' שע\'</span></div>' +
@@ -1323,7 +1372,7 @@ function homeHTML() {
   if (ch.dailyHabit) {
     const hd = ws.habitDays || [];
     const todayDone = hd.includes(dayKey());
-    h += '<div class="card"><div class="row spread"><b>🥦 האתגר היומי</b><span class="tiny">' + hd.length + '/7 ימים השבוע</span></div>' +
+    h += '<div class="card"><div class="row spread"><b>🥦 אתגר יומי: תזונה</b><span class="tiny">' + hd.length + '/7 ימים השבוע</span></div>' +
       '<div class="muted" style="margin:6px 0 10px">' + esc(ch.dailyHabit) + '</div>' +
       (todayDone
         ? '<div class="row"><span class="chip" style="color:var(--ok)">הושלם היום ✔ +10</span><button class="chip" onclick="doHabit(false)">ביטול</button></div>'
@@ -1472,21 +1521,62 @@ function profileHTML() {
       return '<div class="wb"><i style="height:' + (v/maxV*100) + '%"></i><span>ש' + (i+1) + '</span></div>';
     }).join('') + '</div></div>';
 
-  // משקל ותמונות — משותפים לכל חברי האתגר (עריכה רק לבעלים)
-  const wis = (m.weighIns || []).slice().sort((a,b) => a.date < b.date ? -1 : 1);
+  // היסטוריה שבועית — התקדמות לאורך ציר הזמן, לכל מתאמן
+  const selW = state.profWeek == null ? cw : state.profWeek;
+  const hw = memberWeek(m, selW), hwi = weekInfo(selW);
+  const hwStart = Date.parse(state.challenge.startDate) + selW * 7 * 864e5;
+  h += '<div class="card"><b>🗓️ מסע לאורך השבועות</b>' +
+    '<div class="wkhist">' + Array.from({length: cw + 1}, (_, i) =>
+      '<button class="chip ' + (selW === i ? 'sel' : '') + '" onclick="state.profWeek=' + i + ';render()">ש' + (i+1) + '</button>').join('') + '</div>' +
+    '<div class="row" style="flex-wrap:wrap;gap:8px">' +
+    '<span class="chip">💪 ' + hw.min + '/' + hwi.goalMin + ' דק\'' + (hw.goalBonus ? ' ✔' : '') + '</span>' +
+    '<span class="chip">📅 ' + (hw.daysArr || []).length + ' ימים פעילים' + (hw.spreadBonus ? ' ✔' : '') + '</span>' +
+    '<span class="chip">😴 ' + (hw.sleep || 0) + '/' + SLEEP_WEEK_GOAL + ' שע\'' + (hw.sleepGoalBonus ? ' ✔' : '') + '</span>' +
+    (state.challenge.dailyHabit ? '<span class="chip">🥦 ' + (hw.habitDays || []).length + '/7' + (hw.habitBonus ? ' ✔' : '') + '</span>' : '') + '</div>' +
+    '<div class="daydots" style="margin-top:10px">' + DAY_LETTERS.map((L, i) => {
+      const dk2 = dayKey(new Date(hwStart + i * 864e5));
+      return '<div class="daydot ' + ((hw.daysArr || []).includes(dk2) ? 'on' : '') + '"><i></i>' + L + '</div>';
+    }).join('') + '</div></div>';
+
+  // מדידות גוף: משקל + היקף זרוע/בטן/מותניים — משותפים לקבוצה (עריכה רק לבעלים)
+  const meas = getMeasures(m);
+  const wis = meas.filter(e => e.weight != null).map(e => ({date: e.date, kg: e.weight}));
   const cur = wis.length ? wis[wis.length-1].kg : m.startWeight;
-  h += '<div class="card"><div class="row spread"><b>⚖️ מעקב משקל</b><span class="tiny">🤝 משותף לקבוצה</span></div>' +
-    '<div class="row" style="gap:14px;margin:8px 0;flex-wrap:wrap">' +
+  h += '<div class="card"><div class="row spread"><b>📏 מדידות גוף</b><span class="tiny">🤝 משותף לקבוצה</span></div>' +
+    '<div class="row" style="gap:10px;margin:8px 0;flex-wrap:wrap"><b style="font-size:.9em">⚖️ משקל</b>' +
     (m.startWeight ? '<span class="chip">התחלה: ' + m.startWeight + '</span>' : '') +
     (cur ? '<span class="chip" style="color:var(--ac)">עכשיו: ' + cur + '</span>' : '') +
     (m.goalWeight ? '<span class="chip" style="color:var(--ok)">יעד: ' + m.goalWeight + '</span>' : '') + '</div>' +
     (wis.length >= 2 ? weightChartSVG(m, wis) :
-      '<div class="tiny">' + (mine ? 'הוסיפו שקילות כדי לראות גרף התקדמות' : 'אין עדיין מספיק שקילות לגרף') + '</div>') +
-    (mine ? '<div class="row" style="margin-top:10px"><input id="wIn" type="number" step="0.1" min="20" max="400" inputmode="decimal" placeholder="שקילה חדשה (ק״ג)" style="flex:1">' +
-      '<button class="btn" onclick="doWeighInInline()">שמירה ⚖️</button></div>' +
-      '<button class="chip" style="margin-top:9px" onclick="state.editWeights=!state.editWeights;render()">⚙️ עדכון משקל התחלה / יעד</button>' +
-      (state.editWeights ? '<div class="row" style="margin-top:8px"><input id="wStart" type="number" step="0.1" inputmode="decimal" placeholder="התחלה" value="' + (m.startWeight || '') + '">' +
-        '<input id="wGoal" type="number" step="0.1" inputmode="decimal" placeholder="יעד" value="' + (m.goalWeight || '') + '">' +
+      '<div class="tiny">' + (mine ? 'הוסיפו מדידות כדי לראות גרף התקדמות' : 'אין עדיין מספיק מדידות לגרף') + '</div>') +
+    CIRCS.map(f => {
+      const startV = m[f.s];
+      const pts = meas.filter(e => e[f.id] != null).map(e => e[f.id]);
+      const last = pts.length ? pts[pts.length-1] : startV;
+      if (last == null) return mine ? '' : '';
+      const delta = (startV != null && pts.length) ? Math.round((last - startV) * 10) / 10 : null;
+      return '<div class="row" style="gap:10px;margin-top:8px;flex-wrap:wrap"><b style="font-size:.9em">' + f.e + ' ' + f.n + '</b>' +
+        (startV != null ? '<span class="chip">התחלה: ' + startV + '</span>' : '') +
+        (pts.length ? '<span class="chip" style="color:var(--ac)">עכשיו: ' + last + '</span>' : '') +
+        (delta != null && delta !== 0 ? '<span class="chip" style="color:' + (delta < 0 ? 'var(--ok)' : 'var(--tx2)') + '">' + (delta > 0 ? '+' : '') + delta + ' ס"מ</span>' : '') + '</div>' +
+        (pts.length >= 2 ? miniChartSVG(pts) : '');
+    }).join('') +
+    (mine ? '<div class="row" style="margin-top:12px;flex-wrap:wrap;gap:8px">' +
+      '<button class="chip" onclick="state.measForm=!state.measForm;state.editWeights=false;render()">+ מדידה חדשה 📏</button>' +
+      '<button class="chip" onclick="state.editWeights=!state.editWeights;state.measForm=false;render()">⚙️ נתוני התחלה ויעד</button></div>' +
+      (state.measForm ? '<div class="row" style="margin-top:8px;flex-wrap:wrap;gap:6px">' +
+        '<input id="mW" type="number" step="0.1" inputmode="decimal" placeholder="משקל" style="flex:1;min-width:74px">' +
+        '<input id="mArm" type="number" step="0.5" inputmode="decimal" placeholder="זרוע" style="flex:1;min-width:74px">' +
+        '<input id="mBelly" type="number" step="0.5" inputmode="decimal" placeholder="בטן" style="flex:1;min-width:74px">' +
+        '<input id="mWaist" type="number" step="0.5" inputmode="decimal" placeholder="מותניים" style="flex:1;min-width:74px">' +
+        '<button class="btn" onclick="doMeasureInline()">שמירה</button></div>' +
+        '<div class="tiny" style="margin-top:4px">ממלאים מה שמדדתם — אפשר גם חלק מהשדות (משקל בק״ג, היקפים בס״מ)</div>' : '') +
+      (state.editWeights ? '<div class="row" style="margin-top:8px;flex-wrap:wrap;gap:6px">' +
+        '<input id="wStart" type="number" step="0.1" inputmode="decimal" placeholder="משקל התחלה" value="' + (m.startWeight || '') + '" style="flex:1;min-width:90px">' +
+        '<input id="wGoal" type="number" step="0.1" inputmode="decimal" placeholder="משקל יעד" value="' + (m.goalWeight || '') + '" style="flex:1;min-width:90px">' +
+        '<input id="wArmS" type="number" step="0.5" inputmode="decimal" placeholder="זרוע התחלה" value="' + (m.startArm || '') + '" style="flex:1;min-width:90px">' +
+        '<input id="wBellyS" type="number" step="0.5" inputmode="decimal" placeholder="בטן התחלה" value="' + (m.startBelly || '') + '" style="flex:1;min-width:90px">' +
+        '<input id="wWaistS" type="number" step="0.5" inputmode="decimal" placeholder="מותניים התחלה" value="' + (m.startWaist || '') + '" style="flex:1;min-width:90px">' +
         '<button class="btn" onclick="doSetWeightsInline()">שמירה</button></div>' : '') : '') + '</div>';
 
   h += '<div class="card"><div class="row spread"><b>📷 לפני ← אחרי</b><span class="tiny">🤝 משותף לקבוצה</span></div>' +
@@ -1497,6 +1587,23 @@ function profileHTML() {
     (mine ? '<input id="phStart" type="file" accept="image/*" style="display:none" onchange="sharedPhoto(this,\'photoStart\')">' +
     '<input id="phGoal" type="file" accept="image/*" style="display:none" onchange="sharedPhoto(this,\'photoGoal\')">' : '') + '</div>';
   return h + navHTML();
+}
+/* מדידות גוף: משקל + היקפים. רשומה = {date, weight?, arm?, belly?, waist?} */
+const CIRCS = [{id:'arm', n:'זרוע', e:'💪', s:'startArm'}, {id:'belly', n:'בטן', e:'⚪', s:'startBelly'}, {id:'waist', n:'מותניים', e:'📏', s:'startWaist'}];
+function getMeasures(m) {
+  const arr = (m.measures && m.measures.length) ? m.measures.slice()
+    : (m.weighIns || []).map(w => ({date: w.date, weight: w.kg}));   // תאימות למבנה הישן
+  return arr.sort((a, b) => a.date < b.date ? -1 : 1);
+}
+function miniChartSVG(vals) {
+  const W = 340, H = 48, p = 10;
+  let mn = Math.min(...vals), mx = Math.max(...vals);
+  if (mx - mn < 1) { mn -= 0.5; mx += 0.5; }
+  const X = i => p + (W - 2*p) * (vals.length === 1 ? 0.5 : i / (vals.length - 1));
+  const Y = v => H - p - (H - 2*p) * ((v - mn) / (mx - mn));
+  return '<svg class="svgchart" viewBox="0 0 ' + W + ' ' + H + '">' +
+    '<polyline points="' + vals.map((v, i) => X(i) + ',' + Y(v)).join(' ') + '" fill="none" stroke="var(--ac2)" stroke-width="2" stroke-linejoin="round"/>' +
+    vals.map((v, i) => '<circle cx="' + X(i) + '" cy="' + Y(v) + '" r="3" fill="var(--ac2)"/>').join('') + '</svg>';
 }
 function weightChartSVG(p, wis) {
   const W = 340, H = 150, pad = 26;
@@ -1621,6 +1728,7 @@ function netErrorHTML() {
 /* ===================== ניתוב ורינדור ===================== */
 function render() {
   const v = state.view;
+  document.body.dataset.view = state.booting ? 'boot' : v;   // מאפשר עיצוב פר-מסך (פריסת מחשב)
   let h;
   if (state.booting) h = splashHTML();
   else if (v === 'auth') h = authViewHTML();
@@ -1656,7 +1764,7 @@ function render() {
 }
 function nav(v) {
   state.reactFor = null;
-  if (v === 'profile') state.profileUid = state.me;
+  if (v === 'profile') { state.profileUid = state.me; state.profWeek = null; state.measForm = false; state.editWeights = false; }
   if (v === 'checkin') state.draft = {activity: (state.draft && state.draft.activity) || 'walk', minutes: 30, note:'', photo:null};
   if (v === 'captain') state.weekDraft = null;
   if (v === 'panel') state.panelDraft = null;
@@ -1668,7 +1776,7 @@ function nav(v) {
   }
   state.view = v; render();
 }
-function openProfile(uid) { state.profileUid = uid; state.view = 'profile'; render(); }
+function openProfile(uid) { state.profileUid = uid; state.profWeek = null; state.measForm = false; state.editWeights = false; state.view = 'profile'; render(); }
 
 /* ===================== פעולות ===================== */
 function setAuthTab(t) { state.authTab = t; render(); }
@@ -1705,17 +1813,24 @@ function syncEditInputs() {
   const n1 = $('obName'), n2 = $('setName');
   if (n1) state.editProfile.name = n1.value;
   if (n2) state.editProfile.name = n2.value;
-  const w1 = $('obW1'), w2 = $('obW2');
+  const w1 = $('obW1'), w2 = $('obW2'), oa = $('obArm'), ob = $('obBelly'), ow = $('obWaist');
   if (w1) state.editProfile.startWeight = w1.value;
   if (w2) state.editProfile.goalWeight = w2.value;
+  if (oa) state.editProfile.startArm = oa.value;
+  if (ob) state.editProfile.startBelly = ob.value;
+  if (ow) state.editProfile.startWaist = ow.value;
 }
 async function doOnboard() {
   syncEditInputs();
   const d = state.editProfile;
   if (!d.name.trim()) { showToast('איך קוראים לך? 🙂', 'bad'); return; }
-  const priv = {};
-  if (parseFloat(d.startWeight)) { priv.startWeight = parseFloat(d.startWeight); priv.weighIns = [{date: dayKey(), kg: parseFloat(d.startWeight)}]; }
+  const priv = {}, entry = {date: dayKey()};
+  if (parseFloat(d.startWeight)) { priv.startWeight = parseFloat(d.startWeight); entry.weight = priv.startWeight; }
   if (parseFloat(d.goalWeight)) priv.goalWeight = parseFloat(d.goalWeight);
+  if (parseFloat(d.startArm)) { priv.startArm = parseFloat(d.startArm); entry.arm = priv.startArm; }
+  if (parseFloat(d.startBelly)) { priv.startBelly = parseFloat(d.startBelly); entry.belly = priv.startBelly; }
+  if (parseFloat(d.startWaist)) { priv.startWaist = parseFloat(d.startWaist); entry.waist = priv.startWaist; }
+  if (Object.keys(entry).length > 1) priv.measures = [entry];   // המדידה הראשונה על ציר הזמן
   try {
     await Store.completeOnboard({name: d.name.trim(), emoji: d.emoji, color: d.color, avatar: d.avatar || 'hero'}, Object.keys(priv).length ? priv : null);
     showToast('ברוך הבא לאתגר! 🎉', 'gold');
@@ -1777,6 +1892,7 @@ function celebrate(events) {
     if (ev.t === 'group') showToast('🏆 הקבוצה עמדה ביעד! +30 לכולם', 'gold');
     if (ev.t === 'gsleep') showToast('😴 הקבוצה עמדה ביעד השינה! +20 לכולם', 'gold');
     if (ev.t === 'shield') showToast('🛡️ מגן הרצף הציל את הרצף שלך! ייטען מחדש בעוד 14 יום', 'gold');
+    if (ev.t === 'firstweek') showToast('🎬 ראשון בשטח! פתחת את השבוע +15', 'gold');
   }, 600 + i * 900));
   if (events.some(ev => ev.t !== 'badge')) confetti();
 }
@@ -1895,26 +2011,41 @@ async function doClaimBonus() {
   const ok = await Store.claimBonus();
   if (ok) { xpPop(20); if (state.mode === 'demo') render(); else render(); }
 }
-async function doWeighInInline() {
-  const v = parseFloat($('wIn').value);
-  if (isNaN(v) || v < 20 || v > 400) { showToast('נא להזין משקל סביר (20–400)', 'bad'); return; }
+async function doMeasureInline() {
+  const g = id => { const v = parseFloat($(id).value); return isNaN(v) ? null : v; };
+  const entry = {date: dayKey()};
+  const w = g('mW'), a = g('mArm'), b = g('mBelly'), wa = g('mWaist');
+  if (w != null) { if (w < 20 || w > 400) { showToast('משקל לא סביר', 'bad'); return; } entry.weight = w; }
+  if (a != null) { if (a < 15 || a > 100) { showToast('היקף זרוע לא סביר', 'bad'); return; } entry.arm = a; }
+  if (b != null) { if (b < 40 || b > 250) { showToast('היקף בטן לא סביר', 'bad'); return; } entry.belly = b; }
+  if (wa != null) { if (wa < 40 || wa > 250) { showToast('היקף מותניים לא סביר', 'bad'); return; } entry.waist = wa; }
+  if (Object.keys(entry).length === 1) { showToast('נא למלא לפחות מדידה אחת', 'bad'); return; }
+  state.measForm = false;
+  const me = state.members[state.me], patch = {};
+  if (entry.weight != null && !me.startWeight) patch.startWeight = entry.weight;
+  if (entry.arm != null && !me.startArm) patch.startArm = entry.arm;
+  if (entry.belly != null && !me.startBelly) patch.startBelly = entry.belly;
+  if (entry.waist != null && !me.startWaist) patch.startWaist = entry.waist;
   try {
-    await Store.addWeighIn(v);
-    if (!state.members[state.me].startWeight) await Store.saveShared({startWeight: v});
+    await Store.addMeasure(entry);
+    if (Object.keys(patch).length) await Store.saveShared(patch);
     render();
-    showToast('נרשם! ⚖️', 'gold');
+    showToast('נשמר! 📏', 'gold');
   } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
 }
 async function doSetWeightsInline() {
-  const s = parseFloat($('wStart').value), g = parseFloat($('wGoal').value);
+  const g = id => { const v = parseFloat($(id).value); return isNaN(v) ? null : v; };
   const patch = {};
-  if (s >= 20 && s <= 400) patch.startWeight = s;
-  if (g >= 20 && g <= 400) patch.goalWeight = g;
+  const s = g('wStart'), gl = g('wGoal'), ar = g('wArmS'), be = g('wBellyS'), wa = g('wWaistS');
+  if (s != null && s >= 20 && s <= 400) patch.startWeight = s;
+  if (gl != null && gl >= 20 && gl <= 400) patch.goalWeight = gl;
+  if (ar != null && ar >= 15 && ar <= 100) patch.startArm = ar;
+  if (be != null && be >= 40 && be <= 250) patch.startBelly = be;
+  if (wa != null && wa >= 40 && wa <= 250) patch.startWaist = wa;
   if (!Object.keys(patch).length) { showToast('נא להזין ערכים', 'bad'); return; }
   state.editWeights = false;
   try {
     await Store.saveShared(patch);
-    if (patch.startWeight && !(state.members[state.me].weighIns || []).length) await Store.addWeighIn(patch.startWeight);
     render();
     showToast('עודכן ✔', 'gold');
   } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
