@@ -217,7 +217,7 @@ h2{font-size:1.15em;font-weight:800;margin-bottom:10px}
      - מצב ענן (FireStore): Firebase Auth + Firestore, סנכרון חי
        בין המשתתפים. ראו SETUP-FIREBASE.md להקמה.
    ============================================================ */
-const APP_VERSION = '0.4.0';
+const APP_VERSION = '0.4.1';
 
 /* ==== הגדרות Firebase ====
    אחרי הקמת הפרויקט (ראה SETUP-FIREBASE.md) מדביקים כאן את
@@ -1558,7 +1558,8 @@ function panelHTML() {
       return '<div class="row" style="margin-top:10px">' + avatarHTML(m, 1) +
         (mine
           ? '<div class="grow"><input id="bringIn" value="' + esc(val) + '" placeholder="מה להביא? (משהו בריא 🙂)"></div><button class="btn" onclick="doBring()">שמירה</button>'
-          : '<div class="grow"><b>' + esc(m.name) + '</b> — ' + (val ? esc(val) : '<span class="tiny">עוד לא נרשם</span>') + '</div>');
+          : '<div class="grow"><b>' + esc(m.name) + '</b> — ' + (val ? esc(val) : '<span class="tiny">עוד לא נרשם</span>') + '</div>') +
+        '</div>';
     }).join('') + '</div>';
   // עריכה פתוחה לכל חברי הקבוצה (קבוצה קטנה על בסיס אמון)
   h += '<button class="btn" style="width:100%;margin-bottom:12px" onclick="state.panelEdit=!state.panelEdit;state.panelDraft=null;render()">✏️ ' + (panel ? 'עריכת פרטי הפאנל' : 'קביעת הפאנל השבועי') + '</button>';
