@@ -197,6 +197,10 @@ h2{font-size:1.15em;font-weight:800;margin-bottom:10px}
 .bnav .navdot{position:absolute;top:1px;inset-inline-end:18%;width:9px;height:9px;border-radius:50%;background:var(--bad);border:1.5px solid var(--bg1)}
 .daydot.plan i{background:rgba(255,210,63,.12);border:2px dashed var(--ac)}
 .daydot.miss i{background:transparent;border:2px solid rgba(255,87,87,.55)}
+.avgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0}
+.avgrid button{display:flex;flex-direction:column;align-items:center;gap:2px;background:var(--card2);border:2px solid transparent;border-radius:14px;padding:8px 2px 6px;font-size:.72em;font-weight:700}
+.avgrid button.sel{border-color:var(--ac);background:rgba(255,210,63,.12)}
+.avgrid .hero{animation:none}
 </style>
 </head>
 <body>
@@ -213,7 +217,7 @@ h2{font-size:1.15em;font-weight:800;margin-bottom:10px}
      - מצב ענן (FireStore): Firebase Auth + Firestore, סנכרון חי
        בין המשתתפים. ראו SETUP-FIREBASE.md להקמה.
    ============================================================ */
-const APP_VERSION = '0.3.0';
+const APP_VERSION = '0.4.0';
 
 /* ==== הגדרות Firebase ====
    אחרי הקמת הפרויקט (ראה SETUP-FIREBASE.md) מדביקים כאן את
@@ -259,6 +263,17 @@ const BADGES = [
   {id:'sleep',    n:'שינה מלכותית', e:'😴', d:'49 שעות שינה בשבוע אחד'}
 ];
 const HERO_EMOJIS = ['🦸‍♂️','🦸‍♀️','🦹‍♂️','🦹‍♀️','🥷','🤖','🦁','🐆','🦅','⚡','🔥','💪'];
+/* 12 סוגי דמויות — לכל אחת ראש ואביזרים ייחודיים על אותו שלדת גוף.
+   שדרוגי הדרגה (חגורה, גלימה, הילה, כתר...) חלים על כולן. */
+const AVATARS = [
+  {id:'hero',     n:'גיבור־על'},  {id:'knight',  n:'אביר'},
+  {id:'jedi',     n:'לוחם אור'},  {id:'plumber', n:'שרברב־על'},
+  {id:'princess', n:'נסיכה'},     {id:'robot',   n:'רובוט'},
+  {id:'ninja',    n:'נינג\'ה'},   {id:'lion',    n:'אריה'},
+  {id:'wizard',   n:'קוסם'},      {id:'pirate',  n:'שודד ים'},
+  {id:'alien',    n:'חייזר'},     {id:'athlete', n:'אלוף כושר'},
+];
+const DEFAULT_DAILY_HABIT = 'לאכול מתחת ל-100 גרם פחמימות היום';
 const MEMBER_COLORS = ['#ff5757','#ffb020','#3ddc84','#38b6ff','#b388ff','#ff7ab6','#2dd4bf','#f97316'];
 const REACTIONS = ['❤️','🔥','💪','👏','😂'];  // נשמרות לפי אינדקס: r0..r4
 const DAY_LETTERS = ['א','ב','ג','ד','ה','ו','ש'];
@@ -367,13 +382,16 @@ function weekInfo(n) {
     goalMin: saved.goalMin || ch.defaultGoalMin,
     theme: saved.theme || THEMES[n % THEMES.length].id,  // ברירת מחדל: ערכת נושא מתחלפת כל שבוע
     bonus: saved.bonus || '',
+    title: saved.title || '',
     groupBonusDone: !!saved.groupBonusDone,
     groupSleepBonusDone: !!saved.groupSleepBonusDone,
     panel: saved.panel || null,
     brings: saved.brings || {},
   };
 }
-function memberWeek(m, n) { return (m.weekStats && m.weekStats[n]) || {min:0, daysArr:[], goalBonus:false, spreadBonus:false, bonusClaim:false, sleep:0, sleepLog:{}, sleepGoalBonus:false}; }
+/* ברירות המחדל של נתוני שבוע למשתתף — מקור אמת יחיד */
+const WS_DEFAULTS = () => ({min:0, daysArr:[], goalBonus:false, spreadBonus:false, bonusClaim:false, sleep:0, sleepLog:{}, sleepGoalBonus:false, habitDays:[], habitBonus:false});
+function memberWeek(m, n) { return (m.weekStats && m.weekStats[n]) || WS_DEFAULTS(); }
 function groupWeekMin(n) { return Object.values(state.members).reduce((s, m) => s + memberWeek(m, n).min, 0); }
 function groupWeekSleep(n) { return Math.round(Object.values(state.members).reduce((s, m) => s + (memberWeek(m, n).sleep || 0), 0) * 10) / 10; }
 function daysLeftInWeek() {
@@ -388,7 +406,7 @@ function daysLeftInWeek() {
 function applyCheckin(member, weekN, weekGoal, checkin) {
   const m = JSON.parse(JSON.stringify(member));
   m.badges = m.badges || []; m.weekStats = m.weekStats || {};
-  const ws = m.weekStats[weekN] = Object.assign({min:0, daysArr:[], goalBonus:false, spreadBonus:false, bonusClaim:false}, m.weekStats[weekN]);
+  const ws = m.weekStats[weekN] = Object.assign(WS_DEFAULTS(), m.weekStats[weekN]);
   const day = checkin.day, events = [];
   let xp = 10 + Math.floor(checkin.minutes / 5);
 
@@ -434,7 +452,7 @@ function sleepXp(h) { return h >= 8 ? 8 : h >= 7.5 ? 6 : h >= SLEEP_NIGHT_MIN ? 
 function applySleep(member, weekN, hoursRaw, day) {
   const m = JSON.parse(JSON.stringify(member));
   m.badges = m.badges || []; m.weekStats = m.weekStats || {};
-  const ws = m.weekStats[weekN] = Object.assign({min:0, daysArr:[], goalBonus:false, spreadBonus:false, bonusClaim:false, sleep:0, sleepLog:{}, sleepGoalBonus:false}, m.weekStats[weekN]);
+  const ws = m.weekStats[weekN] = Object.assign(WS_DEFAULTS(), m.weekStats[weekN]);
   ws.sleepLog = ws.sleepLog || {};
   const counted = Math.min(hoursRaw, SLEEP_NIGHT_MAX);
   const prev = ws.sleepLog[day] || {h:0, xp:0};
@@ -446,6 +464,28 @@ function applySleep(member, weekN, hoursRaw, day) {
   if (ws.sleep >= SLEEP_WEEK_GOAL && !ws.sleepGoalBonus) {
     ws.sleepGoalBonus = true; dxp += 30; events.push({t:'bonus', txt:'יעד השינה השבועי הושג! +30'});
     if (!m.badges.includes('sleep')) { m.badges.push('sleep'); events.push({t:'badge', id:'sleep'}); }
+  }
+  const lvBefore = levelIndex(m.xp || 0);
+  m.xp = (m.xp || 0) + dxp;
+  if (levelIndex(m.xp) > lvBefore) events.push({t:'level', lv: levelIndex(m.xp)});
+  return {m, xp: dxp, events};
+}
+
+/* האתגר היומי (למשל: מתחת ל-100 גרם פחמימות) — סימון יום בוצע/בוטל.
+   ‎+10 XP ליום, בונוס ‎+25 על שבוע מלא (7/7). ביטול מחזיר את הנקודות. */
+function applyHabit(member, weekN, day, on) {
+  const m = JSON.parse(JSON.stringify(member));
+  m.badges = m.badges || []; m.weekStats = m.weekStats || {};
+  const ws = m.weekStats[weekN] = Object.assign(WS_DEFAULTS(), m.weekStats[weekN]);
+  ws.habitDays = ws.habitDays || [];
+  const has = ws.habitDays.includes(day);
+  if (on === has) return {m, xp: 0, events: []};
+  let dxp = 0; const events = [];
+  if (on) {
+    ws.habitDays.push(day); dxp += 10;
+    if (ws.habitDays.length >= 7 && !ws.habitBonus) { ws.habitBonus = true; dxp += 25; events.push({t:'bonus', txt:'שבוע תזונה מושלם! +25'}); }
+  } else {
+    ws.habitDays = ws.habitDays.filter(d => d !== day); dxp -= 10;
   }
   const lvBefore = levelIndex(m.xp || 0);
   m.xp = (m.xp || 0) + dxp;
@@ -467,8 +507,10 @@ function weekSummaryText(prev) {
   const totSleep = groupWeekSleep(prev), sGoal = SLEEP_WEEK_GOAL * cnt;
   let champ = null, cm = 0;
   Object.values(state.members).forEach(m => { const v = memberWeek(m, prev).min; if (v > cm) { cm = v; champ = m; } });
+  const totHabit = Object.values(state.members).reduce((s, m) => s + (memberWeek(m, prev).habitDays || []).length, 0);
   return '📊 סיכום שבוע ' + (prev + 1) + ': ' + totMin + '/' + gGoal + ' דק\' אימון' + (totMin >= gGoal ? ' ✅' : '') +
     ' · ' + totSleep + '/' + sGoal + ' שע\' שינה' + (totSleep >= sGoal ? ' ✅' : '') +
+    (totHabit > 0 ? ' · 🥦 ' + totHabit + ' ימי תזונה' : '') +
     (champ && cm > 0 ? ' · MVP: ' + champ.name + ' ' + champ.emoji + ' (' + cm + ' דק\')' : '') +
     ' · שבוע חדש, דף חלק — קדימה! 🌅';
 }
@@ -485,7 +527,7 @@ let Store = null;
 
 /* ---------- מצב הדגמה: localStorage ---------- */
 const DemoStore = {
-  LS: 'fitordie_demo_v2',
+  LS: 'fitordie_demo_v3',
   data: null,
   async boot() {
     state.mode = 'demo';
@@ -553,7 +595,7 @@ const DemoStore = {
   },
   async claimBonus() {
     const w = curWeek(), m = state.members[state.me];
-    const ws = m.weekStats[w] = Object.assign({min:0, daysArr:[], goalBonus:false, spreadBonus:false, bonusClaim:false}, m.weekStats[w]);
+    const ws = m.weekStats[w] = Object.assign(WS_DEFAULTS(), m.weekStats[w]);
     if (ws.bonusClaim) return false;
     ws.bonusClaim = true; m.xp += 20;
     state.feed.push({id: uidGen(), type:'system', ts: Date.now(), text:'🎯 משימת הבונוס הושלמה — ' + m.name + ' +20 XP', reactions:{}});
@@ -596,8 +638,26 @@ const DemoStore = {
     this.data.weeks = state.weeks;
     const host = state.members[panel.host];
     state.feed.push({id: uidGen(), type:'system', ts: Date.now(),
-      text:'🥗 פאנל שבועי: אצל ' + (host ? host.name : '?') + (panel.when ? ' · ' + panel.when : '') + (panel.motif ? ' · "' + panel.motif + '"' : ''), reactions:{}});
+      text:'🥗 פאנל שבועי: אצל ' + (host ? host.name : '?') + (panel.when ? ' · ' + panel.when : '') + (panel.location ? ' · 📍 ' + panel.location : '') + (panel.motif ? ' · "' + panel.motif + '"' : ''), reactions:{}});
     this.save();
+  },
+  async saveChallenge(patch) {
+    Object.assign(state.challenge, patch);
+    this.data.challenge = state.challenge;
+    state.feed.push({id: uidGen(), type:'system', ts: Date.now(), text:'⚙️ הגדרות האתגר עודכנו ע"י ' + state.members[state.me].name, reactions:{}});
+    this.save();
+  },
+  async habit(on) {
+    const w = curWeek();
+    const res = applyHabit(state.members[state.me], w, dayKey(), on);
+    state.members[state.me] = res.m;
+    this.data.members = state.members;
+    res.events.forEach(ev => {
+      const txt = eventFeedText(res.m.name, ev);
+      if (txt) state.feed.push({id: uidGen(), type:'system', ts: Date.now(), text: txt, reactions:{}});
+    });
+    this.save();
+    return res;
   },
   async setBring(n, text) {
     const wk = state.weeks[n] = Object.assign({}, state.weeks[n]);
@@ -609,7 +669,7 @@ const DemoStore = {
   async setPlanDays(n, plan) {
     const m = state.members[state.me];
     m.weekStats = m.weekStats || {};
-    m.weekStats[n] = Object.assign({min:0, daysArr:[], goalBonus:false, spreadBonus:false, bonusClaim:false, sleep:0, sleepLog:{}, sleepGoalBonus:false}, m.weekStats[n], {planDays: plan});
+    m.weekStats[n] = Object.assign(WS_DEFAULTS(), m.weekStats[n], {planDays: plan});
     this.save();
   },
   async postWeekSummary(n, text) {
@@ -625,15 +685,16 @@ const DemoStore = {
   seed() {
     const start = sundayOf(new Date(Date.now() - 16 * 864e5));
     const ch = {id:'demo', name:'החבר\'ה של פעם 💪', code:'DEMO1', startDate: dayKey(start),
-      weeksTotal: 12, defaultGoalMin: 150, organizerUid:'u1', captainOrder:['u1','u2','u3','u4']};
-    const mk = (uid, name, emoji, color) => ({uid, name, emoji, color, joinedAt: Date.parse(ch.startDate),
+      weeksTotal: 12, defaultGoalMin: 150, organizerUid:'u1', captainOrder:['u1','u2','u3','u4'],
+      dailyHabit: DEFAULT_DAILY_HABIT};
+    const mk = (uid, name, emoji, color, avatar) => ({uid, name, emoji, color, avatar, joinedAt: Date.parse(ch.startDate),
       xp:0, badges:[], streakDays:0, lastActiveDay:null, weekStats:{}, weighIns:[]});
     const members = {
-      u1: mk('u1','דני','🦸‍♂️','#38b6ff'), u2: mk('u2','מאיה','🦹‍♀️','#ff7ab6'),
-      u3: mk('u3','רון','🥷','#3ddc84'),  u4: mk('u4','שירה','🦸‍♀️','#ffb020'),
+      u1: mk('u1','דני','🦸‍♂️','#38b6ff','hero'),    u2: mk('u2','מאיה','🦹‍♀️','#ff7ab6','princess'),
+      u3: mk('u3','רון','🥷','#3ddc84','robot'),     u4: mk('u4','שירה','🦸‍♀️','#ffb020','lion'),
     };
     const weeks = {2: {bonus:'אימון בחוץ בטבע 🌳',
-      panel: {host:'u3', motif:'ערב שייקים ירוקים 🥤', when:'חמישי 20:00'},
+      panel: {host:'u3', motif:'ערב שייקים ירוקים 🥤', when:'חמישי 20:00', location:''},
       brings: {u2:'סלט פירות', u4:'חטיפי אנרגיה ביתיים'}}};
     const d = {challenge: ch, members, weeks, feed: [], me: null};
     // משקל (משותף לקבוצה): דני עם מעקב מלא, מאיה עם התחלה
@@ -682,6 +743,12 @@ const DemoStore = {
       const day = dayKey(new Date(Date.now() - ago * 864e5));
       const wN = Math.max(0, Math.floor(daysBetween(ch.startDate, day) / 7));
       members[uid] = applySleep(members[uid], wN, h, day).m;
+    });
+    // ימי אתגר תזונה אחרונים (דרך המנוע)
+    [['u1',2],['u1',1],['u2',1],['u4',2]].forEach(([uid, ago]) => {
+      const day = dayKey(new Date(Date.now() - ago * 864e5));
+      const wN = Math.max(0, Math.floor(daysBetween(ch.startDate, day) / 7));
+      members[uid] = applyHabit(members[uid], wN, day, true).m;
     });
     // ריאקציות לדוגמה
     const cks = d.feed.filter(f => f.type === 'checkin');
@@ -769,7 +836,8 @@ const FireStore = {
   async createChallenge(f) {
     const ref = this.db.collection('challenges').doc();
     await ref.set({name: f.name, code: f.code.toUpperCase(), startDate: dayKey(sundayOf(new Date())),
-      weeksTotal: f.weeks, defaultGoalMin: f.goal, organizerUid: state.me, captainOrder: [], createdAt: Date.now()});
+      weeksTotal: f.weeks, defaultGoalMin: f.goal, organizerUid: state.me, captainOrder: [],
+      dailyHabit: DEFAULT_DAILY_HABIT, createdAt: Date.now()});
     state.pendingJoin = {cid: ref.id, code: f.code.toUpperCase()};
     state.view = 'onboard'; render();
   },
@@ -847,7 +915,7 @@ const FireStore = {
   },
   async claimBonus() {
     const w = curWeek(), m = state.members[state.me];
-    const ws = Object.assign({min:0, daysArr:[], goalBonus:false, spreadBonus:false, bonusClaim:false}, memberWeek(m, w));
+    const ws = Object.assign(WS_DEFAULTS(), memberWeek(m, w));
     if (ws.bonusClaim) return false;
     ws.bonusClaim = true;
     await this.chRef().collection('members').doc(state.me).update({['weekStats.' + w]: ws, xp: this.FV.increment(20)});
@@ -897,7 +965,24 @@ const FireStore = {
     await this.chRef().collection('weeks').doc(String(n)).set({panel}, {merge: true});
     const host = state.members[panel.host];
     await this.chRef().collection('feed').add({type:'system', ts: Date.now(),
-      text:'🥗 פאנל שבועי: אצל ' + (host ? host.name : '?') + (panel.when ? ' · ' + panel.when : '') + (panel.motif ? ' · "' + panel.motif + '"' : ''), reactions:{}});
+      text:'🥗 פאנל שבועי: אצל ' + (host ? host.name : '?') + (panel.when ? ' · ' + panel.when : '') + (panel.location ? ' · 📍 ' + panel.location : '') + (panel.motif ? ' · "' + panel.motif + '"' : ''), reactions:{}});
+  },
+  async saveChallenge(patch) {
+    await this.chRef().update(patch);
+    await this.chRef().collection('feed').add({type:'system', ts: Date.now(), text:'⚙️ הגדרות האתגר עודכנו ע"י ' + state.members[state.me].name, reactions:{}});
+  },
+  async habit(on) {
+    const w = curWeek();
+    const res = applyHabit(state.members[state.me], w, dayKey(), on);
+    const b = this.db.batch();
+    b.update(this.chRef().collection('members').doc(state.me),
+      {xp: res.m.xp, ['weekStats.' + w]: res.m.weekStats[w]});
+    res.events.forEach(ev => {
+      const txt = eventFeedText(res.m.name, ev);
+      if (txt) b.set(this.chRef().collection('feed').doc(), {type:'system', ts: Date.now()+1, text: txt, reactions:{}});
+    });
+    await b.commit();
+    return res;
   },
   async setBring(n, text) {
     await this.chRef().collection('weeks').doc(String(n)).set({brings: {[state.me]: text}}, {merge: true});
@@ -944,12 +1029,105 @@ function shade(hex, p) {
   const f = c => Math.max(0, Math.min(255, Math.round(p > 0 ? c + (255 - c) * p / 100 : c * (1 + p / 100))));
   return '#' + ((1 << 24) + (f((n >> 16) & 255) << 16) + (f((n >> 8) & 255) << 8) + f(n & 255)).toString(16).slice(1);
 }
-/* דמות גיבור קומיקס ב-SVG. הדמות משתדרגת ויזואלית עם הדרגה:
+/* דמות קומיקס ב-SVG — 12 סוגי דמויות (AVATARS) על שלדת גוף משותפת בצבע
+   האישי, עם סמל חזה (האימוג'י). שדרוגי הדרגה חלים על כל הדמויות:
    ד'2 חגורת זהב · ד'3 כתפיות · ד'4 גלימה · ד'5 הילה · ד'6 ברקים · ד'7 כוכבים · ד'8 כתר */
+function heroHead(av, c, dk, lt, ol, st, st1) {
+  const eyes = '<ellipse cx="52" cy="37" rx="6.5" ry="4.2" fill="#fff" ' + st1 + ' transform="rotate(-10 52 37)"/>' +
+               '<ellipse cx="68" cy="37" rx="6.5" ry="4.2" fill="#fff" ' + st1 + ' transform="rotate(10 68 37)"/>';
+  const dots = '<circle cx="53" cy="37" r="1.8" fill="' + ol + '"/><circle cx="67" cy="37" r="1.8" fill="' + ol + '"/>';
+  const smile = '<path d="M53,46 Q60,51 67,46" fill="none" stroke="' + ol + '" stroke-width="1.8" stroke-linecap="round"/>';
+  if (av === 'knight')
+    return '<circle cx="60" cy="38" r="19" fill="' + dk + '" ' + st + '/>' +
+      '<rect x="56" y="12" width="8" height="11" rx="3" fill="' + c + '" ' + st1 + '/>' +
+      '<rect x="46" y="32" width="28" height="8" rx="4" fill="#0d0620" ' + st1 + '/>' +
+      '<line x1="60" y1="41" x2="60" y2="55" stroke="' + ol + '" stroke-width="1.5"/>';
+  if (av === 'jedi')
+    return '<circle cx="60" cy="40" r="15" fill="' + c + '" ' + st1 + '/>' + eyes + dots +
+      '<path d="M42,46 Q36,12 60,10 Q84,12 78,46 Q72,28 60,28 Q48,28 42,46 Z" fill="' + dk + '" ' + st + '/>';
+  if (av === 'plumber')
+    return '<circle cx="60" cy="38" r="19" fill="' + c + '" ' + st + '/>' + eyes + dots +
+      '<path d="M47,45 Q53,40 60,44 Q67,40 73,45 Q66,50 60,46 Q54,50 47,45 Z" fill="' + ol + '"/>' +
+      '<path d="M41,27 Q41,10 60,10 Q79,10 79,27 Z" fill="' + dk + '" ' + st1 + '/>' +
+      '<ellipse cx="60" cy="27" rx="21" ry="4.5" fill="' + dk + '" ' + st1 + '/>';
+  if (av === 'princess')
+    return '<circle cx="41" cy="30" r="7" fill="' + dk + '" ' + st1 + '/><circle cx="79" cy="30" r="7" fill="' + dk + '" ' + st1 + '/>' +
+      '<circle cx="60" cy="38" r="19" fill="' + c + '" ' + st + '/>' + eyes + dots + smile +
+      '<path d="M48,20 L52,12 L56,18 L60,10 L64,18 L68,12 L72,20 Z" fill="#ffd23f" ' + st1 + '/><circle cx="60" cy="17" r="2" fill="#ff7ab6"/>';
+  if (av === 'robot')
+    return '<rect x="43" y="20" width="34" height="35" rx="7" fill="' + c + '" ' + st + '/>' +
+      '<rect x="49" y="31" width="9" height="9" rx="2" fill="#9ff3ff" ' + st1 + '/><rect x="62" y="31" width="9" height="9" rx="2" fill="#9ff3ff" ' + st1 + '/>' +
+      '<line x1="53" y1="48" x2="67" y2="48" stroke="' + ol + '" stroke-width="2"/>' +
+      '<line x1="60" y1="20" x2="60" y2="10" stroke="' + ol + '" stroke-width="2"/><circle cx="60" cy="8" r="3.5" fill="#ffd23f" ' + st1 + '/>';
+  if (av === 'ninja')
+    return '<circle cx="60" cy="38" r="19" fill="' + dk + '" ' + st + '/>' +
+      '<rect x="45" y="31" width="30" height="10" rx="5" fill="' + lt + '" ' + st1 + '/>' +
+      '<circle cx="53" cy="36" r="2.2" fill="' + ol + '"/><circle cx="67" cy="36" r="2.2" fill="' + ol + '"/>' +
+      '<rect x="42" y="24" width="36" height="5" rx="2.5" fill="' + c + '" ' + st1 + '/>' +
+      '<path d="M76,26 L94,20 L90,30 L78,31 Z" fill="' + c + '" ' + st1 + '/>';
+  if (av === 'lion')
+    return '<circle cx="60" cy="38" r="25" fill="' + dk + '" ' + st + '/>' +
+      '<circle cx="44" cy="20" r="6" fill="' + c + '" ' + st1 + '/><circle cx="76" cy="20" r="6" fill="' + c + '" ' + st1 + '/>' +
+      '<circle cx="60" cy="38" r="16" fill="' + c + '" ' + st1 + '/>' +
+      '<circle cx="53" cy="34" r="2.2" fill="' + ol + '"/><circle cx="67" cy="34" r="2.2" fill="' + ol + '"/>' +
+      '<ellipse cx="60" cy="44" rx="7.5" ry="5.5" fill="' + lt + '" ' + st1 + '/><path d="M57,42 L63,42 L60,45.5 Z" fill="' + ol + '"/>';
+  if (av === 'wizard')
+    return '<circle cx="60" cy="40" r="15" fill="' + c + '" ' + st1 + '/>' + dots.replace(/cy="37"/g, 'cy="38"') +
+      '<path d="M47,44 Q49,58 60,58 Q71,58 73,44 Q66,50 60,49 Q54,50 47,44 Z" fill="#ece7fb" ' + st1 + '/>' +
+      '<path d="M60,2 L76,29 L44,29 Z" fill="' + dk + '" ' + st + '/><ellipse cx="60" cy="29" rx="20" ry="4.5" fill="' + dk + '" ' + st1 + '/>' +
+      '<text x="62" y="24" font-size="9" fill="#ffd23f" text-anchor="middle">★</text>';
+  if (av === 'pirate')
+    return '<circle cx="60" cy="38" r="19" fill="' + c + '" ' + st + '/>' +
+      '<ellipse cx="52" cy="38" rx="5.5" ry="4" fill="#fff" ' + st1 + '/><circle cx="52" cy="38" r="1.8" fill="' + ol + '"/>' +
+      '<circle cx="68" cy="38" r="6" fill="#0d0620"/><line x1="42" y1="32" x2="79" y2="43" stroke="#0d0620" stroke-width="2.2"/>' +
+      '<path d="M41,34 Q39,13 60,12 Q81,13 79,34 Q60,25 41,34 Z" fill="' + dk + '" ' + st + '/>' +
+      '<path d="M78,28 L94,23 L90,33 Z" fill="' + dk + '" ' + st1 + '/>' +
+      '<circle cx="43" cy="47" r="2.5" fill="#ffd23f" ' + st1 + '/>' +
+      '<path d="M54,47 Q61,50 66,46" fill="none" stroke="' + ol + '" stroke-width="1.8" stroke-linecap="round"/>';
+  if (av === 'alien')
+    return '<ellipse cx="60" cy="35" rx="17" ry="22" fill="' + lt + '" ' + st + '/>' +
+      '<ellipse cx="53" cy="36" rx="4.5" ry="8" fill="#0d0620" transform="rotate(-14 53 36)"/><ellipse cx="67" cy="36" rx="4.5" ry="8" fill="#0d0620" transform="rotate(14 67 36)"/>' +
+      '<line x1="50" y1="15" x2="45" y2="6" stroke="' + ol + '" stroke-width="1.8"/><circle cx="44" cy="5" r="3" fill="' + c + '" ' + st1 + '/>' +
+      '<line x1="70" y1="15" x2="75" y2="6" stroke="' + ol + '" stroke-width="1.8"/><circle cx="76" cy="5" r="3" fill="' + c + '" ' + st1 + '/>' +
+      '<circle cx="60" cy="49" r="1.7" fill="' + ol + '"/>';
+  if (av === 'athlete')
+    return '<circle cx="60" cy="38" r="19" fill="' + c + '" ' + st + '/>' + eyes + dots + smile +
+      '<rect x="42" y="25" width="36" height="6.5" rx="3" fill="#ffd23f" ' + st1 + '/>';
+  // ברירת מחדל: גיבור־על במסכה מלאה
+  return '<circle cx="60" cy="38" r="19" fill="' + c + '" ' + st + '/>' + eyes;
+}
+function heroBodySig(av, c, dk, lt, ol, st, st1) {
+  if (av === 'plumber')
+    return '<rect x="46" y="57" width="7" height="21" fill="' + lt + '" ' + st1 + '/><rect x="67" y="57" width="7" height="21" fill="' + lt + '" ' + st1 + '/>' +
+      '<circle cx="49.5" cy="74" r="2" fill="#ffd23f"/><circle cx="70.5" cy="74" r="2" fill="#ffd23f"/>';
+  if (av === 'princess')
+    return '<path d="M45,90 L75,90 L88,132 L32,132 Z" fill="' + c + '" ' + st + '/>' +
+      '<path d="M36,126 L84,126 L86,132 L34,132 Z" fill="' + lt + '" ' + st1 + '/>';
+  if (av === 'jedi')
+    return '<path d="M40,56 L50,56 L46,102 L45,102 Z" fill="' + dk + '" ' + st1 + '/><path d="M80,56 L70,56 L74,102 L75,102 Z" fill="' + dk + '" ' + st1 + '/>';
+  return '';
+}
+function heroProp(av, c, dk, lt, ol, st, st1) {
+  if (av === 'knight')
+    return '<path d="M22,78 L40,78 L40,98 Q31,108 22,98 Z" fill="' + lt + '" ' + st + '/>' +
+      '<line x1="31" y1="80" x2="31" y2="101" stroke="' + ol + '" stroke-width="1.2"/><line x1="24" y1="88" x2="38" y2="88" stroke="' + ol + '" stroke-width="1.2"/>';
+  if (av === 'jedi')
+    return '<rect x="84" y="30" width="7" height="50" rx="3.5" fill="#8ef78a" opacity=".35"/>' +
+      '<rect x="86" y="32" width="3.4" height="46" rx="1.7" fill="#d6ffd0"/>' +
+      '<rect x="84.4" y="78" width="6.6" height="13" rx="2" fill="#59607a" ' + st1 + '/>';
+  if (av === 'wizard')
+    return '<rect x="29" y="34" width="4.5" height="58" rx="2.2" fill="#8a6a48" ' + st1 + '/>' +
+      '<circle cx="31" cy="30" r="10" fill="#ffd23f" opacity=".22"/><circle cx="31" cy="30" r="6.5" fill="#ffd23f" opacity=".9" ' + st1 + '/>';
+  if (av === 'athlete')
+    return '<rect x="29" y="84" width="15" height="7" rx="3.5" fill="#ffd23f" ' + st1 + '/><rect x="76" y="84" width="15" height="7" rx="3.5" fill="#ffd23f" ' + st1 + '/>';
+  return '';
+}
 function heroSVG(m, size) {
   const lv = levelIndex(m.xp || 0);
+  const av = m.avatar || 'hero';
   const c = m.color, dk = shade(c, -32), lt = shade(c, 40), ol = '#14092e';
   const st = 'stroke="' + ol + '" stroke-width="2.5" stroke-linejoin="round"';
+  const st1 = 'stroke="' + ol + '" stroke-width="1.2"';
   let s = '';
   // גלימה (דרגה 4+)
   if (lv >= 3) s += '<path d="M40,58 Q14,96 27,133 L60,113 L93,133 Q106,96 80,58 Z" fill="' + dk + '" ' + st + '/>';
@@ -966,22 +1144,24 @@ function heroSVG(m, size) {
   // גוף + הבהוב תאורה
   s += '<path d="M40,56 L80,56 L75,102 L45,102 Z" fill="' + c + '" ' + st + '/>' +
        '<path d="M44,59 L60,59 L57,80 L47,80 Z" fill="' + lt + '" opacity=".55"/>';
+  // תוספות גוף לפי דמות (שמלה, כתפיות סרבל, גלימת ג'דיי)
+  s += heroBodySig(av, c, dk, lt, ol, st, st1);
   // חגורה (זהב מדרגה 2)
   s += '<rect x="43" y="95" width="34" height="8" rx="3.5" fill="' + (lv >= 1 ? '#ffd23f' : dk) + '" ' + st + '/>';
-  // כתפיות (דרגה 3+)
+  // כתפיות שריון (דרגה 3+)
   if (lv >= 2) s += '<ellipse cx="41" cy="57" rx="10" ry="6.5" fill="' + dk + '" ' + st + '/>' +
                     '<ellipse cx="79" cy="57" rx="10" ry="6.5" fill="' + dk + '" ' + st + '/>';
-  // ראש במסכה מלאה + עיניים הרואיות
-  s += '<circle cx="60" cy="38" r="19" fill="' + c + '" ' + st + '/>' +
-       '<ellipse cx="52" cy="37" rx="6.5" ry="4.2" fill="#fff" stroke="' + ol + '" stroke-width="1.2" transform="rotate(-10 52 37)"/>' +
-       '<ellipse cx="68" cy="37" rx="6.5" ry="4.2" fill="#fff" stroke="' + ol + '" stroke-width="1.2" transform="rotate(10 68 37)"/>';
+  // ראש לפי הדמות
+  s += heroHead(av, c, dk, lt, ol, st, st1);
+  // אביזר חתימה (מגן, חרב אור, מטה...)
+  s += heroProp(av, c, dk, lt, ol, st, st1);
   // סמל חזה — האימוג'י האישי
   s += '<circle cx="60" cy="76" r="12" fill="#fff" ' + st + '/>' +
        '<text x="60" y="81" font-size="14" text-anchor="middle">' + m.emoji + '</text>';
   // ברקים (דרגה 6+), כוכבים (7+), כתר (8)
   if (lv >= 5) s += '<text x="12" y="72" font-size="15">⚡</text><text x="94" y="52" font-size="15">⚡</text>';
   if (lv >= 6) s += '<text x="22" y="24" font-size="13" fill="#ffd23f">✦</text><text x="88" y="18" font-size="15" fill="#ffd23f">✦</text><text x="98" y="90" font-size="11" fill="#ffd23f">✦</text>';
-  if (lv >= 7) s += '<text x="60" y="16" font-size="20" text-anchor="middle">👑</text>';
+  if (lv >= 7) s += '<text x="60" y="14" font-size="20" text-anchor="middle">👑</text>';
   const aura = lv >= 4 ? 'filter:drop-shadow(0 0 ' + (lv >= 6 ? 16 : 9) + 'px ' + c + ')' : '';
   return '<svg class="hero" width="' + size + '" height="' + Math.round(size * 1.25) + '" viewBox="0 0 120 150" style="' + aura + '">' + s + '</svg>';
 }
@@ -1049,11 +1229,17 @@ function joinViewHTML() {
     '<button class="btn" style="width:100%" onclick="Store.signOut()">יציאה מהחשבון</button>';
 }
 
+function avatarPickerHTML(d, xp) {
+  return '<div class="avgrid">' + AVATARS.map(a =>
+    '<button class="' + ((d.avatar || 'hero') === a.id ? 'sel' : '') + '" onclick="obSet(\'avatar\',\'' + a.id + '\')">' +
+    heroSVG({avatar: a.id, color: d.color, emoji: d.emoji, xp: xp || 0}, 44) + a.n + '</button>').join('') + '</div>';
+}
 function onboardHTML() {
-  const d = state.editProfile || (state.editProfile = {name:'', emoji: HERO_EMOJIS[0], color: MEMBER_COLORS[3], startWeight:'', goalWeight:''});
+  const d = state.editProfile || (state.editProfile = {name:'', emoji: HERO_EMOJIS[0], color: MEMBER_COLORS[3], avatar:'hero', startWeight:'', goalWeight:''});
   return topbarHTML() + '<h2>בניית כרטיס הגיבור שלך 🦸</h2>' +
     '<div class="card"><div class="field"><label>שם (כמו שהחברים יראו)</label><input id="obName" value="' + esc(d.name) + '" placeholder="השם שלך"></div>' +
-    '<div class="field"><label>בחר גיבור</label><div class="emogrid">' +
+    '<div class="field"><label>בחרו דמות</label>' + avatarPickerHTML(d, 0) + '</div>' +
+    '<div class="field"><label>סמל חזה</label><div class="emogrid">' +
     HERO_EMOJIS.map(e => '<button class="' + (d.emoji===e?'sel':'') + '" onclick="obSet(\'emoji\',\'' + e + '\')">' + e + '</button>').join('') + '</div></div>' +
     '<div class="field"><label>צבע אישי</label><div class="colorrow">' +
     MEMBER_COLORS.map(c => '<button class="' + (d.color===c?'sel':'') + '" style="background:' + c + '" onclick="obSet(\'color\',\'' + c + '\')"></button>').join('') + '</div></div></div>' +
@@ -1086,6 +1272,7 @@ function homeHTML() {
   // כרטיס שבוע
   h += '<div class="card weekcard"><div class="row spread"><b>שבוע ' + (w+1) + '/' + ch.weeksTotal + ' · ' + esc(ch.name) + '</b>' +
     '<span class="chip">🎨 ' + themeById(wi.theme).n + '</span></div>' +
+    (wi.title ? '<div style="margin-top:6px;font-weight:800;color:var(--ac)">🎯 ' + esc(wi.title) + '</div>' : '') +
     '<div class="row spread" style="margin-top:7px"><span class="row" style="gap:6px">' + (cap ? avatarHTML(cap,1) + '<span class="muted">קפטן השבוע: <b style="color:var(--tx)">' + esc(cap.name) + '</b></span>' : '') + '</span>' +
     '<span class="chip">' + (dl <= 1 ? '⏰ היום האחרון!' : '⏳ עוד ' + dl + ' ימים') + '</span></div>' +
     (wi.panel && state.members[wi.panel.host]
@@ -1131,6 +1318,17 @@ function homeHTML() {
     '<div class="mbar"><i style="width:' + Math.min(100, (gSleep / sleepGroupGoal) * 100) + '%;background:#b388ff"></i></div>' +
     '<div class="tiny" style="margin-top:6px">7 שע\' ומעלה בלילה = XP · 8 = מקסימום (יותר מזה לא נספר)</div>' +
     (wi.groupSleepBonusDone ? '<div class="chip" style="margin-top:8px;color:var(--ok)">😴 יעד השינה הקבוצתי הושג! +20 לכולם</div>' : '') + '</div>';
+
+  // האתגר היומי (למשל: מתחת ל-100 גרם פחמימות)
+  if (ch.dailyHabit) {
+    const hd = ws.habitDays || [];
+    const todayDone = hd.includes(dayKey());
+    h += '<div class="card"><div class="row spread"><b>🥦 האתגר היומי</b><span class="tiny">' + hd.length + '/7 ימים השבוע</span></div>' +
+      '<div class="muted" style="margin:6px 0 10px">' + esc(ch.dailyHabit) + '</div>' +
+      (todayDone
+        ? '<div class="row"><span class="chip" style="color:var(--ok)">הושלם היום ✔ +10</span><button class="chip" onclick="doHabit(false)">ביטול</button></div>'
+        : '<button class="btn" style="width:100%" onclick="doHabit(true)">עמדתי בזה היום! +10 🥦</button>') + '</div>';
+  }
 
   // משימת בונוס
   if (wi.bonus) {
@@ -1232,7 +1430,7 @@ function groupHTML() {
         '<div class="grow"><div class="row spread"><b style="font-size:1.1em">' + esc(m.name) + (m.uid === wi.captainUid ? ' ⚡' : '') + '</b><span class="medal">' + (medals[i] || '') + '</span></div>' +
         '<div class="tiny">' + LEVELS[lv].e + ' ' + LEVELS[lv].n + ' · ' + m.xp + ' XP' + (m.streakDays ? ' · 🔥 רצף ' + m.streakDays : '') + '</div>' +
         '<div class="mbar"><i style="width:' + Math.min(100, (x.min / wi.goalMin) * 100) + '%;background:' + m.color + '"></i></div>' +
-        '<div class="tiny" style="margin-top:3px">💪 ' + x.min + ' / ' + wi.goalMin + ' דק\' · 😴 ' + (mw.sleep || 0) + ' / ' + SLEEP_WEEK_GOAL + ' שע\'</div></div></div></div>';
+        '<div class="tiny" style="margin-top:3px">💪 ' + x.min + ' / ' + wi.goalMin + ' דק\' · 😴 ' + (mw.sleep || 0) + ' / ' + SLEEP_WEEK_GOAL + ' שע\'' + (state.challenge.dailyHabit ? ' · 🥦 ' + (mw.habitDays || []).length + '/7' : '') + '</div></div></div></div>';
     }).join('') + navHTML();
 }
 
@@ -1252,7 +1450,8 @@ function profileHTML() {
     '<div class="row" style="justify-content:center;gap:8px;margin-top:8px;flex-wrap:wrap">' +
     '<span class="chip">💪 ' + (mw.min || 0) + ' דק\' השבוע</span><span class="chip">😴 ' + (mw.sleep || 0) + ' שע\' השבוע</span>' +
     (m.streakDays ? '<span class="chip">🔥 רצף ' + m.streakDays + '</span>' : '') + '</div>' +
-    (next ? '<div class="tiny" style="margin-top:6px">בדרגה הבאה הגיבור מקבל ' + (lv >= 6 ? 'כתר 👑' : lv >= 5 ? 'כוכבים ✦' : lv >= 4 ? 'ברקים ⚡' : lv >= 3 ? 'הילה זוהרת ✨' : lv >= 2 ? 'גלימה 🦸' : lv >= 1 ? 'כתפיות שריון' : 'חגורת זהב') + '!</div>' : '') +
+    (next ? '<div class="tiny" style="margin-top:6px">בדרגה הבאה הדמות מקבלת ' + (lv >= 6 ? 'כתר 👑' : lv >= 5 ? 'כוכבים ✦' : lv >= 4 ? 'ברקים ⚡' : lv >= 3 ? 'הילה זוהרת ✨' : lv >= 2 ? 'גלימה 🦸' : lv >= 1 ? 'כתפיות שריון' : 'חגורת זהב') + '!</div>' : '') +
+    (mine ? '<button class="btn" style="margin-top:10px" onclick="nav(\'settings\')">✏️ עריכת השם, הדמות והצבע</button>' : '') +
     '</div>';
 
   // תגים
@@ -1320,8 +1519,10 @@ function captainHTML() {
   const w = curWeek(), wi = weekInfo(w);
   if (wi.captainUid !== state.me && state.challenge.organizerUid !== state.me)
     return topbarHTML() + '<div class="card center">רק הקפטן התורן יכול לנהל את השבוע ⚡</div>' + navHTML();
-  const d = state.weekDraft || (state.weekDraft = {goalMin: wi.goalMin, theme: wi.theme, bonus: wi.bonus});
+  const d = state.weekDraft || (state.weekDraft = {goalMin: wi.goalMin, theme: wi.theme, bonus: wi.bonus, title: wi.title});
   return topbarHTML() + '<h2>⚡ ניהול שבוע ' + (w+1) + '</h2>' +
+    '<div class="card"><div class="muted" style="margin-bottom:6px">שם / כותרת לשבוע (רשות)</div>' +
+    '<input id="wkTitle" value="' + esc(d.title || '') + '" placeholder="למשל: שבוע ההליכות בטבע" oninput="state.weekDraft.title=this.value"></div>' +
     '<div class="card"><div class="muted" style="margin-bottom:6px">היעד השבועי לכל משתתף (דקות)</div>' +
     '<div class="row"><button class="btn" onclick="wkGoal(-10)">−</button>' +
     '<div class="grow center" style="font-weight:900;font-size:1.6em">' + d.goalMin + '</div>' +
@@ -1338,7 +1539,6 @@ function captainHTML() {
 function panelHTML() {
   const w = curWeek(), wi = weekInfo(w);
   const panel = wi.panel, brings = wi.brings;
-  const isCap = wi.captainUid === state.me || state.challenge.organizerUid === state.me;
   let h = topbarHTML() + '<h2>🥗 הפאנל השבועי <span class="muted" style="font-weight:400;font-size:.7em">שבוע ' + (w+1) + '</span></h2>' +
     '<div class="tiny" style="margin:-4px 0 12px">המפגש הפיזי של הקבוצה — כל אחד מביא משהו בריא 🙂</div>';
   if (panel && state.members[panel.host]) {
@@ -1347,9 +1547,10 @@ function panelHTML() {
       '<div><div class="tiny">מתארחים אצל</div><b style="font-size:1.2em">' + esc(host.name) + '</b></div></div>' +
       '<div class="row" style="gap:8px;margin-top:9px;flex-wrap:wrap">' +
       (panel.when ? '<span class="chip">🕒 ' + esc(panel.when) + '</span>' : '') +
+      (panel.location ? '<span class="chip">📍 ' + esc(panel.location) + '</span>' : '') +
       (panel.motif ? '<span class="chip">🎪 ' + esc(panel.motif) + '</span>' : '') + '</div></div>';
   } else {
-    h += '<div class="card center muted">הקפטן עוד לא קבע את פרטי המפגש השבוע 🤷</div>';
+    h += '<div class="card center muted">עוד לא נקבע פאנל השבוע — לחצו על עריכה וקבעו 🤗</div>';
   }
   h += '<div class="card"><b>🧺 מי מביא מה</b>' +
     Object.values(state.members).map(m => {
@@ -1359,13 +1560,16 @@ function panelHTML() {
           ? '<div class="grow"><input id="bringIn" value="' + esc(val) + '" placeholder="מה להביא? (משהו בריא 🙂)"></div><button class="btn" onclick="doBring()">שמירה</button>'
           : '<div class="grow"><b>' + esc(m.name) + '</b> — ' + (val ? esc(val) : '<span class="tiny">עוד לא נרשם</span>') + '</div>');
     }).join('') + '</div>';
-  if (isCap) {
-    const d = state.panelDraft || (state.panelDraft = {host: (panel && panel.host) || wi.captainUid, motif: (panel && panel.motif) || '', when: (panel && panel.when) || ''});
-    h += '<div class="card"><b>⚡ הגדרת הפאנל (קפטן)</b>' +
+  // עריכה פתוחה לכל חברי הקבוצה (קבוצה קטנה על בסיס אמון)
+  h += '<button class="btn" style="width:100%;margin-bottom:12px" onclick="state.panelEdit=!state.panelEdit;state.panelDraft=null;render()">✏️ ' + (panel ? 'עריכת פרטי הפאנל' : 'קביעת הפאנל השבועי') + '</button>';
+  if (state.panelEdit) {
+    const d = state.panelDraft || (state.panelDraft = {host: (panel && panel.host) || wi.captainUid, motif: (panel && panel.motif) || '', when: (panel && panel.when) || '', location: (panel && panel.location) || ''});
+    h += '<div class="card"><b>✏️ עריכת הפאנל</b>' +
       '<div class="tiny" style="margin:8px 0 4px">אצל מי מתארחים?</div><div class="chips">' +
       Object.values(state.members).map(m => '<button class="' + (d.host === m.uid ? 'sel' : '') + '" onclick="panelHost(\'' + m.uid + '\')">' + m.emoji + ' ' + esc(m.name) + '</button>').join('') + '</div>' +
-      '<div class="field"><label>מוטיב / נושא המפגש</label><input id="panelMotif" value="' + esc(d.motif) + '" placeholder="למשל: ערב שייקים אחרי אימון"></div>' +
       '<div class="field"><label>מתי?</label><input id="panelWhen" value="' + esc(d.when) + '" placeholder="למשל: חמישי 20:00"></div>' +
+      '<div class="field"><label>מיקום (אם לא בבית המארח)</label><input id="panelLoc" value="' + esc(d.location) + '" placeholder="למשל: הפארק ליד הבית של רון"></div>' +
+      '<div class="field"><label>מוטיב / נושא המפגש</label><input id="panelMotif" value="' + esc(d.motif) + '" placeholder="למשל: ערב שייקים אחרי אימון"></div>' +
       '<button class="btn primary" onclick="doPanelSave()">פרסום הפאנל 📣</button></div>';
   }
   return h + navHTML();
@@ -1373,14 +1577,24 @@ function panelHTML() {
 
 function settingsHTML() {
   const me = state.members[state.me];
-  const d = state.editProfile || (state.editProfile = me ? {name: me.name, emoji: me.emoji, color: me.color} : {name:'', emoji:HERO_EMOJIS[0], color:MEMBER_COLORS[0]});
+  const d = state.editProfile || (state.editProfile = me ? {name: me.name, emoji: me.emoji, color: me.color, avatar: me.avatar || 'hero'} : {name:'', emoji:HERO_EMOJIS[0], color:MEMBER_COLORS[0], avatar:'hero'});
   let h = topbarHTML() + '<h2>הגדרות ⚙️</h2>';
   if (me) {
-    h += '<div class="card"><b>עריכת הכרטיס שלי</b>' +
+    h += '<div class="card"><b>✏️ עריכת הכרטיס שלי</b>' +
       '<div class="field" style="margin-top:8px"><label>שם</label><input id="setName" value="' + esc(d.name) + '"></div>' +
-      '<div class="emogrid">' + HERO_EMOJIS.map(e => '<button class="' + (d.emoji===e?'sel':'') + '" onclick="obSet(\'emoji\',\'' + e + '\')">' + e + '</button>').join('') + '</div>' +
-      '<div class="colorrow">' + MEMBER_COLORS.map(c => '<button class="' + (d.color===c?'sel':'') + '" style="background:' + c + '" onclick="obSet(\'color\',\'' + c + '\')"></button>').join('') + '</div>' +
+      '<div class="field"><label>דמות</label>' + avatarPickerHTML(d, me.xp) + '</div>' +
+      '<div class="field"><label>סמל חזה</label><div class="emogrid">' + HERO_EMOJIS.map(e => '<button class="' + (d.emoji===e?'sel':'') + '" onclick="obSet(\'emoji\',\'' + e + '\')">' + e + '</button>').join('') + '</div></div>' +
+      '<div class="field"><label>צבע אישי</label><div class="colorrow">' + MEMBER_COLORS.map(c => '<button class="' + (d.color===c?'sel':'') + '" style="background:' + c + '" onclick="obSet(\'color\',\'' + c + '\')"></button>').join('') + '</div></div>' +
       '<button class="btn primary" onclick="doSaveProfile()">שמירה</button></div>';
+  }
+  // הגדרות האתגר — למארגן בלבד
+  const ch = state.challenge;
+  if (ch && me && ch.organizerUid === state.me) {
+    h += '<div class="card"><b>🏆 הגדרות האתגר (מארגן)</b>' +
+      '<div class="field" style="margin-top:8px"><label>שם האתגר</label><input id="chEditName" value="' + esc(ch.name) + '"></div>' +
+      '<div class="field"><label>יעד שבועי בסיסי לאדם (דק\')</label><input id="chEditGoal" type="number" min="' + GOAL_MIN_RANGE[0] + '" max="' + GOAL_MIN_RANGE[1] + '" step="10" value="' + ch.defaultGoalMin + '"></div>' +
+      '<div class="field"><label>האתגר היומי (השאירו ריק כדי לכבות)</label><input id="chEditHabit" value="' + esc(ch.dailyHabit || '') + '" placeholder="' + esc(DEFAULT_DAILY_HABIT) + '"></div>' +
+      '<button class="btn primary" onclick="doSaveChallenge()">שמירת הגדרות האתגר</button></div>';
   }
   h += '<div class="card"><b>📲 התקנה על האייפון</b><ol class="steps" style="margin-inline-start:18px">' +
     '<li>פתחו את הכתובת הזו ב<b>ספארי</b></li>' +
@@ -1502,7 +1716,7 @@ async function doOnboard() {
   if (parseFloat(d.startWeight)) { priv.startWeight = parseFloat(d.startWeight); priv.weighIns = [{date: dayKey(), kg: parseFloat(d.startWeight)}]; }
   if (parseFloat(d.goalWeight)) priv.goalWeight = parseFloat(d.goalWeight);
   try {
-    await Store.completeOnboard({name: d.name.trim(), emoji: d.emoji, color: d.color}, Object.keys(priv).length ? priv : null);
+    await Store.completeOnboard({name: d.name.trim(), emoji: d.emoji, color: d.color, avatar: d.avatar || 'hero'}, Object.keys(priv).length ? priv : null);
     showToast('ברוך הבא לאתגר! 🎉', 'gold');
   } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
 }
@@ -1510,9 +1724,28 @@ async function doSaveProfile() {
   syncEditInputs();
   const d = state.editProfile;
   if (!d.name.trim()) { showToast('חסר שם', 'bad'); return; }
-  await Store.saveProfile({name: d.name.trim(), emoji: d.emoji, color: d.color});
+  await Store.saveProfile({name: d.name.trim(), emoji: d.emoji, color: d.color, avatar: d.avatar || 'hero'});
   if (state.mode === 'demo') render();
   applyTheme(); showToast('נשמר ✔', 'gold');
+}
+async function doSaveChallenge() {
+  const name = $('chEditName').value.trim();
+  const goal = Math.max(GOAL_MIN_RANGE[0], Math.min(GOAL_MIN_RANGE[1], parseInt($('chEditGoal').value) || state.challenge.defaultGoalMin));
+  const habit = $('chEditHabit').value.trim();
+  if (!name) { showToast('חסר שם לאתגר', 'bad'); return; }
+  try {
+    await Store.saveChallenge({name, defaultGoalMin: goal, dailyHabit: habit});
+    if (state.mode === 'demo') render();
+    showToast('הגדרות האתגר נשמרו ✔', 'gold');
+  } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
+}
+async function doHabit(on) {
+  try {
+    const res = await Store.habit(on);
+    render();
+    if (res.xp > 0) xpPop(res.xp);
+    celebrate(res.events);
+  } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
 }
 function draftSet(k, v) { state.draft[k] = v; render(); }
 function draftMin(v) { state.draft.minutes = Math.max(0, Math.min(600, v || 0)); render(); }
@@ -1603,16 +1836,18 @@ async function feedPhotoSend(inp) {
 }
 function panelHost(uid) { syncPanelInputs(); state.panelDraft.host = uid; render(); }
 function syncPanelInputs() {
-  const m = $('panelMotif'), w = $('panelWhen');
+  const m = $('panelMotif'), w = $('panelWhen'), l = $('panelLoc');
   if (m) state.panelDraft.motif = m.value;
   if (w) state.panelDraft.when = w.value;
+  if (l) state.panelDraft.location = l.value;
 }
 async function doPanelSave() {
   syncPanelInputs();
   const d = state.panelDraft;
+  state.panelEdit = false;
   try {
-    await Store.setPanel(curWeek(), {host: d.host, motif: d.motif.trim(), when: d.when.trim()});
-    if (state.mode === 'demo') render();
+    await Store.setPanel(curWeek(), {host: d.host, motif: d.motif.trim(), when: d.when.trim(), location: d.location.trim()});
+    render();
     showToast('הפאנל פורסם לקבוצה! 🥗', 'gold');
   } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
 }
@@ -1646,10 +1881,11 @@ function wkGoal(d) {
 }
 function wkTheme(t) { state.weekDraft.theme = t; const b = $('wkBonus'); if (b) state.weekDraft.bonus = b.value; render(); }
 async function doWeekPlan() {
-  const d = state.weekDraft, b = $('wkBonus');
+  const d = state.weekDraft, b = $('wkBonus'), t = $('wkTitle');
   if (b) d.bonus = b.value.trim();
+  if (t) d.title = t.value.trim();
   try {
-    await Store.setWeekPlan(curWeek(), {goalMin: d.goalMin, theme: d.theme, bonus: d.bonus, captainUid: weekInfo(curWeek()).captainUid});
+    await Store.setWeekPlan(curWeek(), {goalMin: d.goalMin, theme: d.theme, bonus: d.bonus, title: d.title || '', captainUid: weekInfo(curWeek()).captainUid});
     state.view = 'home'; applyTheme(); render();
     showToast('השבוע פורסם לקבוצה! 📣', 'gold');
   } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
