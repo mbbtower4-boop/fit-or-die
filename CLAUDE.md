@@ -21,6 +21,10 @@
 
 לכל שינוי גלוי למשתמש: לעדכן `APP_VERSION` ב-index.html **וגם** `version` ב-package.json (זהים), רשומה עברית מתוארכת ב-CHANGELOG.md, והגרסה בהודעת הקומיט. הגרסה מוצגת בלוגו ובהגדרות.
 
+## PWA
+
+`manifest.json` + `icons/` (נוצרו מקנבס: גולגולת על גרדיאנט) + `sw.js` (service worker): index.html תמיד network-first (עדכוני גרסה מגיעים מיד; המטמון רק גיבוי אופליין), נכסים סטטיים cache-first. אם מוסיפים קובץ סטטי חדש — להוסיף אותו ל-`ASSETS` ב-sw.js ולהעלות את שם ה-`CACHE` (fitordie-shell-vN).
+
 ## פריסה
 
 GitHub Pages מהשורש (כמו שאר הפרויקטים). ה-URL ציבורי אך התוכן מאחורי Auth + קוד הזמנה. `FIREBASE_CONFIG` בקוד אינו סוד — ההגנה בחוקי האבטחה.
