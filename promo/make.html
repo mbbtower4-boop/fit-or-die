@@ -47,32 +47,39 @@ async function p1() {
   txt('אתגר הכושר הקבוצתי שלנו יוצא לדרך', W/2, 312, 36, '#ffd23f', 700);
   txt('שבוע 1 מתחיל מחר · יום ראשון', W/2, 358, 28, '#cfc4ff', 400);
 
-  const files = ['fighter-2','cleric-2','rogue-4','ranger-5','wizard-6'];
+  // חמישה גיבורים בציור השמן החדש
+  const files = ['fighter-2','cleric-3','deathknight-2','ranger-2','wizard-3'];
   const imgs = await Promise.all(files.map(f => load('../avatars/' + f + '.jpg')));
   const pw = 178, ph = 222, gap = 14, total = files.length * pw + (files.length-1) * gap;
-  imgs.forEach((im, i) => pic(im, (W - total)/2 + i*(pw+gap), 400 + (i%2 ? 16 : 0), pw, ph, i%2 ? '#b388ff' : '#ffd23f', 20));
+  imgs.forEach((im, i) => pic(im, (W - total)/2 + i*(pw+gap), 396 + (i%2 ? 16 : 0), pw, ph, i%2 ? '#b388ff' : '#ffd23f', 20));
 
-  const items = [['💪','150 דקות בשבוע','הליכה, ריצה, כושר, אופניים — הכול נספר'],
+  // שורת חיות מלוות
+  const pets = ['wolf-1','tiger-1','dragon-1','unicorn-1','griffin-1','phoenix-1'];
+  const pimgs = await Promise.all(pets.map(f => load('../avatars/' + f + '.jpg')));
+  const qw = 138, qgap = 12, qtot = pets.length * qw + (pets.length-1) * qgap;
+  pimgs.forEach((im, i) => pic(im, (W - qtot)/2 + i*(qw+qgap), 656, qw, qw, 'rgba(255,210,63,.75)', 16));
+  txt('15 מחלקות · 14 חיות מלוות · הדמות מתחזקת עם כל אימון', W/2, 828, 25, '#cfc4ff', 400);
+
+  const items = [['💪','150 דקות בשבוע','הליכה, ריצה, כושר, אופניים'],
                  ['😴','7–8 שעות שינה','כן, גם לישון זה חלק מהאתגר'],
-                 ['🥦','מתחת ל-100 ג׳ פחמימות','אתגר יומי — מסמנים ✔ וצוברים'],
-                 ['🐉','דמות שמתחזקת','כל אימון משדרג את הגיבור, הציוד והחיה']];
-  const cw = 468, chh = 168;
+                 ['🥦','אתגרים יומיים','הקפטן קובע עד 5 אתגרים כל שבוע'],
+                 ['🐉','דמות שמתחזקת','תכונות, לחשים, ציוד וחיה — לפי הביצועים']];
+  const cw = 468, chh = 150;
   items.forEach((it, i) => {
-    const x = 56 + (i%2) * (cw + 32), y = 690 + Math.floor(i/2) * (chh + 24);
+    const x = 56 + (i%2) * (cw + 32), y = 862 + Math.floor(i/2) * (chh + 20);
     card(x, y, cw, chh, 'rgba(255,255,255,.09)', 'rgba(255,255,255,.20)');
-    txt(it[0], x + cw - 26, y + 56, 42, '#fff', 700, 'right');
-    txt(it[1], x + cw - 26, y + 104, 30, '#fff', 900, 'right');
-    txt(it[2], x + cw - 26, y + 142, 21, '#d8d2f5', 400, 'right');
+    txt(it[0], x + cw - 26, y + 50, 38, '#fff', 700, 'right');
+    txt(it[1], x + cw - 26, y + 94, 29, '#fff', 900, 'right');
+    txt(it[2], x + cw - 26, y + 128, 20, '#d8d2f5', 400, 'right');
   });
 
-  const bx = (W - 560)/2;
-  const bg2 = X.createLinearGradient(bx, 0, bx+560, 0);
+  const bx = (W - 600)/2;
+  const bg2 = X.createLinearGradient(bx, 0, bx+600, 0);
   bg2.addColorStop(0, '#ffd23f'); bg2.addColorStop(1, '#ff8a3d');
-  card(bx, 1128, 560, 92, bg2);
-  txt('מצטרפים 👉 קוד FIT1', W/2, 1188, 36, '#1c1029', 900);
-  X.save(); X.direction = 'ltr'; X.textAlign = 'center'; X.fillStyle = '#fff'; X.font = '700 26px Heebo, Arial';
-  X.fillText('mbbtower4-boop.github.io/fit-or-die', W/2, 1258); X.restore();
-  txt('או שמתאמנים… או ש־ 💀', W/2, 1302, 24, '#ffd23f', 700);
+  card(bx, 1188, 600, 90, bg2);
+  txt('מצטרפים 👉 קוד FIT1', W/2, 1246, 36, '#1c1029', 900);
+  X.save(); X.direction = 'ltr'; X.textAlign = 'center'; X.fillStyle = '#fff'; X.font = '700 25px Heebo, Arial';
+  X.fillText('mbbtower4-boop.github.io/fit-or-die', W/2, 1310); X.restore();
 }
 
 /* ===== כרזה 2 — מגילת קלף ===== */
