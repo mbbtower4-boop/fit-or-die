@@ -234,7 +234,7 @@ h2{font-size:1.15em;font-weight:800;margin-bottom:10px}
      - מצב ענן (FireStore): Firebase Auth + Firestore, סנכרון חי
        בין המשתתפים. ראו SETUP-FIREBASE.md להקמה.
    ============================================================ */
-const APP_VERSION = '0.6.0';
+const APP_VERSION = '0.7.0';
 
 /* ==== הגדרות Firebase ====
    אחרי הקמת הפרויקט (ראה SETUP-FIREBASE.md) מדביקים כאן את
@@ -289,6 +289,45 @@ const AVATARS = [
   {id:'wizard',   n:'קוסם'},      {id:'pirate',  n:'שודד ים'},
   {id:'alien',    n:'חייזר'},     {id:'athlete', n:'אלוף כושר'},
 ];
+/* מלתחה — פריטי לבוש/ציוד הנפתחים לפי דרגה (lv = אינדקס דרגה 0..7) */
+const SKIN_TONES = ['#f6d0a9','#e8b184','#c68a58','#9a6a44'];
+const GEAR = {
+  prop: [
+    {id:'none',     n:'בלי אביזר',  lv:0}, {id:'dumbbell', n:'משקולת 🏋️', lv:0},
+    {id:'shield',   n:'מגן 🛡️',    lv:1}, {id:'sword',    n:'חרב ⚔️',    lv:2},
+    {id:'staff',    n:'מטה קסם ✨', lv:3}, {id:'saber',    n:'להב אנרגיה', lv:4},
+    {id:'trident',  n:'קלשון 🔱',   lv:6},
+  ],
+  cape: [
+    {id:'none',  n:'בלי גלימה', lv:0}, {id:'cape',  n:'גלימה', lv:3},
+    {id:'royal', n:'גלימת פאר', lv:6},
+  ],
+  outfit: [
+    {id:'classic', n:'קלאסית', lv:0}, {id:'gi',    n:'חליפת אימון', lv:1},
+    {id:'armor',   n:'שריון',  lv:2}, {id:'royal', n:'מלכותית',    lv:5},
+  ],
+};
+function defaultGear(m) {
+  const lv = levelIndex(m.xp || 0), av = m.avatar || 'hero';
+  const wish = {knight:'shield', jedi:'saber', wizard:'staff', athlete:'dumbbell', pirate:'sword'}[av] || 'none';
+  const wItem = GEAR.prop.find(p => p.id === wish);
+  return {
+    skin: 1,
+    prop: (wItem && wItem.lv <= lv) ? wish : 'none',
+    cape: lv >= 6 ? 'royal' : lv >= 3 ? 'cape' : 'none',
+    outfit: lv >= 5 ? 'royal' : lv >= 2 ? 'armor' : 'classic',
+  };
+}
+function memberGear(m) {
+  const lv = levelIndex(m.xp || 0);
+  const g = Object.assign(defaultGear(m), m.gear || {});
+  ['prop','cape','outfit'].forEach(k => {
+    const it = GEAR[k].find(x => x.id === g[k]);
+    if (!it || it.lv > lv) g[k] = defaultGear(m)[k];   // אכיפת נעילות
+  });
+  if (!(g.skin >= 0 && g.skin < SKIN_TONES.length)) g.skin = 1;
+  return g;
+}
 const DEFAULT_DAILY_HABIT = 'לאכול מתחת ל-100 גרם פחמימות היום';
 const MEMBER_COLORS = ['#ff5757','#ffb020','#3ddc84','#38b6ff','#b388ff','#ff7ab6','#2dd4bf','#f97316'];
 const REACTIONS = ['❤️','🔥','💪','👏','😂'];  // נשמרות לפי אינדקס: r0..r4
@@ -1121,141 +1160,210 @@ function shade(hex, p) {
   const f = c => Math.max(0, Math.min(255, Math.round(p > 0 ? c + (255 - c) * p / 100 : c * (1 + p / 100))));
   return '#' + ((1 << 24) + (f((n >> 16) & 255) << 16) + (f((n >> 8) & 255) << 8) + f(n & 255)).toString(16).slice(1);
 }
-/* דמות קומיקס ב-SVG — 12 סוגי דמויות (AVATARS) על שלדת גוף משותפת בצבע
-   האישי, עם סמל חזה (האימוג'י). שדרוגי הדרגה חלים על כל הדמויות:
-   ד'2 חגורת זהב · ד'3 כתפיות · ד'4 גלימה · ד'5 הילה · ד'6 ברקים · ד'7 כוכבים · ד'8 כתר */
-function heroHead(av, c, dk, lt, ol, st, st1) {
-  const eyes = '<ellipse cx="52" cy="37" rx="6.5" ry="4.2" fill="#fff" ' + st1 + ' transform="rotate(-10 52 37)"/>' +
-               '<ellipse cx="68" cy="37" rx="6.5" ry="4.2" fill="#fff" ' + st1 + ' transform="rotate(10 68 37)"/>';
-  const dots = '<circle cx="53" cy="37" r="1.8" fill="' + ol + '"/><circle cx="67" cy="37" r="1.8" fill="' + ol + '"/>';
-  const smile = '<path d="M53,46 Q60,51 67,46" fill="none" stroke="' + ol + '" stroke-width="1.8" stroke-linecap="round"/>';
+/* ===== מערכת דמויות v2 — סגנון קלף משחק (צ'יבי) =====
+   ראש גדול, פנים עם עיניים גדולות, הצללות גרדיאנט, מלתחה (GEAR) ניתנת
+   להחלפה עם פתיחת פריטים לפי דרגה. אפקטי דרגה: הילה/ברקים/כוכבים/כתר. */
+function heroFace(o) {
+  return '<ellipse cx="61" cy="50" rx="6.4" ry="7.8" fill="#fff" ' + o.st1 + '/>' +
+    '<ellipse cx="79" cy="50" rx="6.4" ry="7.8" fill="#fff" ' + o.st1 + '/>' +
+    '<circle cx="61.5" cy="51" r="3.7" fill="' + o.dk2 + '"/><circle cx="78.5" cy="51" r="3.7" fill="' + o.dk2 + '"/>' +
+    '<circle cx="62.5" cy="52.5" r="1.7" fill="' + o.ol + '"/><circle cx="79.5" cy="52.5" r="1.7" fill="' + o.ol + '"/>' +
+    '<circle cx="60" cy="48.5" r="1.4" fill="#fff"/><circle cx="77" cy="48.5" r="1.4" fill="#fff"/>' +
+    '<path d="M55,40.5 Q61,38 66,40.5" fill="none" ' + o.st1 + '/><path d="M74,40.5 Q79,38 85,40.5" fill="none" ' + o.st1 + '/>' +
+    '<path d="M65,63 Q70,66.5 75,63" fill="none" stroke="' + o.ol + '" stroke-width="1.9" stroke-linecap="round"/>' +
+    '<ellipse cx="54" cy="58" rx="3.6" ry="2.1" fill="#ff8fa0" opacity=".35"/><ellipse cx="86" cy="58" rx="3.6" ry="2.1" fill="#ff8fa0" opacity=".35"/>';
+}
+function heroHead(av, o) {
+  const skinHead = '<circle cx="70" cy="48" r="28" fill="' + o.S + '" ' + o.st + '/>';
+  if (av === 'hero')
+    return skinHead + heroFace(o) +
+      '<path d="M44,42 Q42,16 70,14 Q98,16 96,42 L90,34 L84,40 L78,28 L70,36 L62,27 L56,38 L50,32 Z" fill="' + o.dk2 + '" ' + o.st1 + '/>' +
+      '<rect x="47" y="36" width="46" height="7.5" rx="3.75" fill="' + o.GOLD + '" ' + o.st1 + '/>';
   if (av === 'knight')
-    return '<circle cx="60" cy="38" r="19" fill="' + dk + '" ' + st + '/>' +
-      '<rect x="56" y="12" width="8" height="11" rx="3" fill="' + c + '" ' + st1 + '/>' +
-      '<rect x="46" y="32" width="28" height="8" rx="4" fill="#0d0620" ' + st1 + '/>' +
-      '<line x1="60" y1="41" x2="60" y2="55" stroke="' + ol + '" stroke-width="1.5"/>';
+    return skinHead + heroFace(o) +
+      '<path d="M42,44 Q42,14 70,14 Q98,14 98,44 L92,44 Q92,22 70,22 Q48,22 48,44 Z" fill="' + o.MET + '" ' + o.st + '/>' +
+      '<rect x="42" y="41" width="56" height="6.5" rx="3.25" fill="' + o.MET + '" ' + o.st1 + '/>' +
+      '<rect x="66" y="4" width="8" height="13" rx="3.5" fill="' + o.c + '" ' + o.st1 + '/>' +
+      '<rect x="42" y="47" width="8" height="16" rx="3.5" fill="' + o.MET + '" ' + o.st1 + '/><rect x="90" y="47" width="8" height="16" rx="3.5" fill="' + o.MET + '" ' + o.st1 + '/>';
   if (av === 'jedi')
-    return '<circle cx="60" cy="40" r="15" fill="' + c + '" ' + st1 + '/>' + eyes + dots +
-      '<path d="M42,46 Q36,12 60,10 Q84,12 78,46 Q72,28 60,28 Q48,28 42,46 Z" fill="' + dk + '" ' + st + '/>';
+    return skinHead + heroFace(o) +
+      '<path d="M40,54 Q34,12 70,9 Q106,12 100,54 Q92,28 70,28 Q48,28 40,54 Z" fill="' + o.D + '" ' + o.st + '/>';
   if (av === 'plumber')
-    return '<circle cx="60" cy="38" r="19" fill="' + c + '" ' + st + '/>' + eyes + dots +
-      '<path d="M47,45 Q53,40 60,44 Q67,40 73,45 Q66,50 60,46 Q54,50 47,45 Z" fill="' + ol + '"/>' +
-      '<path d="M41,27 Q41,10 60,10 Q79,10 79,27 Z" fill="' + dk + '" ' + st1 + '/>' +
-      '<ellipse cx="60" cy="27" rx="21" ry="4.5" fill="' + dk + '" ' + st1 + '/>';
+    return skinHead + heroFace(o).replace('<path d="M65,63', '<path style="display:none" d="M65,63') +
+      '<path d="M52,60 Q58,55 70,59 Q82,55 88,60 Q80,66 70,62 Q60,66 52,60 Z" fill="' + o.dk2 + '"/>' +
+      '<path d="M42,32 Q42,10 70,10 Q98,10 98,32 Z" fill="' + o.D + '" ' + o.st + '/>' +
+      '<ellipse cx="70" cy="32" rx="30" ry="5.5" fill="' + o.D + '" ' + o.st1 + '/>';
   if (av === 'princess')
-    return '<circle cx="41" cy="30" r="7" fill="' + dk + '" ' + st1 + '/><circle cx="79" cy="30" r="7" fill="' + dk + '" ' + st1 + '/>' +
-      '<circle cx="60" cy="38" r="19" fill="' + c + '" ' + st + '/>' + eyes + dots + smile +
-      '<path d="M48,20 L52,12 L56,18 L60,10 L64,18 L68,12 L72,20 Z" fill="#ffd23f" ' + st1 + '/><circle cx="60" cy="17" r="2" fill="#ff7ab6"/>';
+    return '<path d="M44,32 Q26,88 42,128 Q52,116 54,76 L56,40 Z" fill="' + o.dk2 + '" ' + o.st1 + '/>' +
+      '<path d="M96,32 Q114,88 98,128 Q88,116 86,76 L84,40 Z" fill="' + o.dk2 + '" ' + o.st1 + '/>' +
+      skinHead + heroFace(o) +
+      '<path d="M42,40 Q44,16 70,14 Q96,16 98,40 Q84,28 70,30 Q56,28 42,40 Z" fill="' + o.dk2 + '" ' + o.st1 + '/>' +
+      '<path d="M52,26 L58,16 L64,23 L70,12 L76,23 L82,16 L88,26 Z" fill="' + o.GOLD + '" ' + o.st1 + '/><circle cx="70" cy="21" r="2.6" fill="#ff7ab6" ' + o.st1 + '/>' +
+      '<circle cx="42" cy="60" r="2.6" fill="' + o.GOLD + '" ' + o.st1 + '/><circle cx="98" cy="60" r="2.6" fill="' + o.GOLD + '" ' + o.st1 + '/>';
   if (av === 'robot')
-    return '<rect x="43" y="20" width="34" height="35" rx="7" fill="' + c + '" ' + st + '/>' +
-      '<rect x="49" y="31" width="9" height="9" rx="2" fill="#9ff3ff" ' + st1 + '/><rect x="62" y="31" width="9" height="9" rx="2" fill="#9ff3ff" ' + st1 + '/>' +
-      '<line x1="53" y1="48" x2="67" y2="48" stroke="' + ol + '" stroke-width="2"/>' +
-      '<line x1="60" y1="20" x2="60" y2="10" stroke="' + ol + '" stroke-width="2"/><circle cx="60" cy="8" r="3.5" fill="#ffd23f" ' + st1 + '/>';
+    return '<rect x="44" y="20" width="52" height="52" rx="13" fill="' + o.MET + '" ' + o.st + '/>' +
+      '<rect x="54" y="38" width="12" height="12" rx="3" fill="#9ff3ff" ' + o.st1 + '/><rect x="74" y="38" width="12" height="12" rx="3" fill="#9ff3ff" ' + o.st1 + '/>' +
+      '<circle cx="58" cy="42" r="1.6" fill="#fff"/><circle cx="78" cy="42" r="1.6" fill="#fff"/>' +
+      '<rect x="58" y="58" width="24" height="5" rx="2.5" fill="' + o.ol + '" opacity=".75"/>' +
+      '<line x1="70" y1="20" x2="70" y2="8" stroke="' + o.ol + '" stroke-width="2.4"/><circle cx="70" cy="6" r="4" fill="' + o.GOLD + '" ' + o.st1 + '/>' +
+      '<circle cx="47" cy="46" r="2" fill="' + o.ol + '" opacity=".5"/><circle cx="93" cy="46" r="2" fill="' + o.ol + '" opacity=".5"/>';
   if (av === 'ninja')
-    return '<circle cx="60" cy="38" r="19" fill="' + dk + '" ' + st + '/>' +
-      '<rect x="45" y="31" width="30" height="10" rx="5" fill="' + lt + '" ' + st1 + '/>' +
-      '<circle cx="53" cy="36" r="2.2" fill="' + ol + '"/><circle cx="67" cy="36" r="2.2" fill="' + ol + '"/>' +
-      '<rect x="42" y="24" width="36" height="5" rx="2.5" fill="' + c + '" ' + st1 + '/>' +
-      '<path d="M76,26 L94,20 L90,30 L78,31 Z" fill="' + c + '" ' + st1 + '/>';
+    return '<circle cx="70" cy="48" r="28" fill="' + o.D + '" ' + o.st + '/>' +
+      '<rect x="50" y="41" width="40" height="16" rx="8" fill="' + o.S + '" ' + o.st1 + '/>' +
+      '<circle cx="61.5" cy="49" r="3" fill="' + o.ol + '"/><circle cx="78.5" cy="49" r="3" fill="' + o.ol + '"/>' +
+      '<circle cx="60.5" cy="47.5" r="1.1" fill="#fff"/><circle cx="77.5" cy="47.5" r="1.1" fill="#fff"/>' +
+      '<rect x="46" y="30" width="48" height="7" rx="3.5" fill="' + o.c + '" ' + o.st1 + '/>' +
+      '<path d="M92,32 L114,24 L109,37 L94,39 Z" fill="' + o.c + '" ' + o.st1 + '/>';
   if (av === 'lion')
-    return '<circle cx="60" cy="38" r="25" fill="' + dk + '" ' + st + '/>' +
-      '<circle cx="44" cy="20" r="6" fill="' + c + '" ' + st1 + '/><circle cx="76" cy="20" r="6" fill="' + c + '" ' + st1 + '/>' +
-      '<circle cx="60" cy="38" r="16" fill="' + c + '" ' + st1 + '/>' +
-      '<circle cx="53" cy="34" r="2.2" fill="' + ol + '"/><circle cx="67" cy="34" r="2.2" fill="' + ol + '"/>' +
-      '<ellipse cx="60" cy="44" rx="7.5" ry="5.5" fill="' + lt + '" ' + st1 + '/><path d="M57,42 L63,42 L60,45.5 Z" fill="' + ol + '"/>';
+    return '<circle cx="70" cy="48" r="34" fill="' + o.D + '" ' + o.st + '/>' +
+      '<path d="M40,30 L48,20 L52,32 Z" fill="' + o.D + '" ' + o.st1 + '/><path d="M100,30 L92,20 L88,32 Z" fill="' + o.D + '" ' + o.st1 + '/>' +
+      '<circle cx="48" cy="22" r="7" fill="' + o.c + '" ' + o.st1 + '/><circle cx="92" cy="22" r="7" fill="' + o.c + '" ' + o.st1 + '/>' +
+      '<circle cx="70" cy="48" r="23" fill="' + o.B + '" ' + o.st1 + '/>' +
+      '<ellipse cx="61" cy="45" rx="5" ry="6" fill="#fff" ' + o.st1 + '/><ellipse cx="79" cy="45" rx="5" ry="6" fill="#fff" ' + o.st1 + '/>' +
+      '<circle cx="61.5" cy="46" r="2.8" fill="' + o.dk2 + '"/><circle cx="78.5" cy="46" r="2.8" fill="' + o.dk2 + '"/>' +
+      '<ellipse cx="70" cy="58" rx="9" ry="6.5" fill="' + o.lt + '" ' + o.st1 + '/>' +
+      '<path d="M66.5,55.5 L73.5,55.5 L70,60 Z" fill="' + o.ol + '"/>' +
+      '<path d="M70,60 L70,63 M66,65 Q70,67 74,65" fill="none" stroke="' + o.ol + '" stroke-width="1.5" stroke-linecap="round"/>';
   if (av === 'wizard')
-    return '<circle cx="60" cy="40" r="15" fill="' + c + '" ' + st1 + '/>' + dots.replace(/cy="37"/g, 'cy="38"') +
-      '<path d="M47,44 Q49,58 60,58 Q71,58 73,44 Q66,50 60,49 Q54,50 47,44 Z" fill="#ece7fb" ' + st1 + '/>' +
-      '<path d="M60,2 L76,29 L44,29 Z" fill="' + dk + '" ' + st + '/><ellipse cx="60" cy="29" rx="20" ry="4.5" fill="' + dk + '" ' + st1 + '/>' +
-      '<text x="62" y="24" font-size="9" fill="#ffd23f" text-anchor="middle">★</text>';
+    return skinHead + heroFace(o) +
+      '<path d="M46,58 Q44,88 70,90 Q96,88 94,58 Q82,70 70,68 Q58,70 46,58 Z" fill="#efe9fb" ' + o.st1 + '/>' +
+      '<path d="M70,0 L98,42 L42,42 Z" fill="' + o.D + '" ' + o.st + '/>' +
+      '<ellipse cx="70" cy="42" rx="31" ry="6" fill="' + o.D + '" ' + o.st1 + '/>' +
+      '<rect x="52" y="34" width="36" height="6" rx="3" fill="' + o.GOLD + '" ' + o.st1 + '/>' +
+      '<text x="72" y="30" font-size="11" fill="#ffd23f" text-anchor="middle">★</text>';
   if (av === 'pirate')
-    return '<circle cx="60" cy="38" r="19" fill="' + c + '" ' + st + '/>' +
-      '<ellipse cx="52" cy="38" rx="5.5" ry="4" fill="#fff" ' + st1 + '/><circle cx="52" cy="38" r="1.8" fill="' + ol + '"/>' +
-      '<circle cx="68" cy="38" r="6" fill="#0d0620"/><line x1="42" y1="32" x2="79" y2="43" stroke="#0d0620" stroke-width="2.2"/>' +
-      '<path d="M41,34 Q39,13 60,12 Q81,13 79,34 Q60,25 41,34 Z" fill="' + dk + '" ' + st + '/>' +
-      '<path d="M78,28 L94,23 L90,33 Z" fill="' + dk + '" ' + st1 + '/>' +
-      '<circle cx="43" cy="47" r="2.5" fill="#ffd23f" ' + st1 + '/>' +
-      '<path d="M54,47 Q61,50 66,46" fill="none" stroke="' + ol + '" stroke-width="1.8" stroke-linecap="round"/>';
+    return skinHead +
+      '<ellipse cx="61" cy="50" rx="6.4" ry="7.8" fill="#fff" ' + o.st1 + '/><circle cx="61.5" cy="51" r="3.7" fill="' + o.dk2 + '"/><circle cx="60" cy="48.5" r="1.4" fill="#fff"/>' +
+      '<path d="M55,40.5 Q61,38 66,40.5" fill="none" ' + o.st1 + '/>' +
+      '<circle cx="79" cy="50" r="8" fill="#150b28" ' + o.st1 + '/>' +
+      '<line x1="44" y1="42" x2="98" y2="56" stroke="#150b28" stroke-width="3"/>' +
+      '<path d="M42,44 Q40,14 70,12 Q100,14 98,44 Q70,32 42,44 Z" fill="' + o.D + '" ' + o.st + '/>' +
+      '<path d="M96,36 L118,29 L112,42 Z" fill="' + o.D + '" ' + o.st1 + '/>' +
+      '<circle cx="44" cy="62" r="3" fill="' + o.GOLD + '" ' + o.st1 + '/>' +
+      '<path d="M63,64 Q71,67.5 77,62.5" fill="none" stroke="' + o.ol + '" stroke-width="1.9" stroke-linecap="round"/>';
   if (av === 'alien')
-    return '<ellipse cx="60" cy="35" rx="17" ry="22" fill="' + lt + '" ' + st + '/>' +
-      '<ellipse cx="53" cy="36" rx="4.5" ry="8" fill="#0d0620" transform="rotate(-14 53 36)"/><ellipse cx="67" cy="36" rx="4.5" ry="8" fill="#0d0620" transform="rotate(14 67 36)"/>' +
-      '<line x1="50" y1="15" x2="45" y2="6" stroke="' + ol + '" stroke-width="1.8"/><circle cx="44" cy="5" r="3" fill="' + c + '" ' + st1 + '/>' +
-      '<line x1="70" y1="15" x2="75" y2="6" stroke="' + ol + '" stroke-width="1.8"/><circle cx="76" cy="5" r="3" fill="' + c + '" ' + st1 + '/>' +
-      '<circle cx="60" cy="49" r="1.7" fill="' + ol + '"/>';
+    return '<ellipse cx="70" cy="44" rx="25" ry="31" fill="#a9e87f" stroke="' + o.ol + '" stroke-width="2.6"/>' +
+      '<ellipse cx="70" cy="36" rx="16" ry="10" fill="#c8f5a8" opacity=".6"/>' +
+      '<ellipse cx="60" cy="48" rx="6" ry="11" fill="#150b28" transform="rotate(-13 60 48)"/><ellipse cx="80" cy="48" rx="6" ry="11" fill="#150b28" transform="rotate(13 80 48)"/>' +
+      '<circle cx="58" cy="42" r="1.8" fill="#fff"/><circle cx="78" cy="42" r="1.8" fill="#fff"/>' +
+      '<line x1="58" y1="16" x2="52" y2="5" stroke="' + o.ol + '" stroke-width="2"/><circle cx="51" cy="4" r="3.4" fill="' + o.c + '" ' + o.st1 + '/>' +
+      '<line x1="82" y1="16" x2="88" y2="5" stroke="' + o.ol + '" stroke-width="2"/><circle cx="89" cy="4" r="3.4" fill="' + o.c + '" ' + o.st1 + '/>' +
+      '<circle cx="70" cy="64" r="2" fill="' + o.ol + '"/>';
   if (av === 'athlete')
-    return '<circle cx="60" cy="38" r="19" fill="' + c + '" ' + st + '/>' + eyes + dots + smile +
-      '<rect x="42" y="25" width="36" height="6.5" rx="3" fill="#ffd23f" ' + st1 + '/>';
-  // ברירת מחדל: גיבור־על במסכה מלאה
-  return '<circle cx="60" cy="38" r="19" fill="' + c + '" ' + st + '/>' + eyes;
+    return skinHead + heroFace(o) +
+      '<path d="M46,38 Q48,18 70,16 Q92,18 94,38 Q82,28 70,30 Q58,28 46,38 Z" fill="' + o.dk2 + '" ' + o.st1 + '/>' +
+      '<rect x="45" y="34" width="50" height="8" rx="4" fill="' + o.GOLD + '" ' + o.st1 + '/>' +
+      '<path d="M96,52 q3,4 0,8" fill="none" stroke="#7fd6ff" stroke-width="2.5" stroke-linecap="round"/>';
+  // ברירת מחדל: גיבור
+  return skinHead + heroFace(o);
 }
-function heroBodySig(av, c, dk, lt, ol, st, st1) {
-  if (av === 'plumber')
-    return '<rect x="46" y="57" width="7" height="21" fill="' + lt + '" ' + st1 + '/><rect x="67" y="57" width="7" height="21" fill="' + lt + '" ' + st1 + '/>' +
-      '<circle cx="49.5" cy="74" r="2" fill="#ffd23f"/><circle cx="70.5" cy="74" r="2" fill="#ffd23f"/>';
-  if (av === 'princess')
-    return '<path d="M45,90 L75,90 L88,132 L32,132 Z" fill="' + c + '" ' + st + '/>' +
-      '<path d="M36,126 L84,126 L86,132 L34,132 Z" fill="' + lt + '" ' + st1 + '/>';
-  if (av === 'jedi')
-    return '<path d="M40,56 L50,56 L46,102 L45,102 Z" fill="' + dk + '" ' + st1 + '/><path d="M80,56 L70,56 L74,102 L75,102 Z" fill="' + dk + '" ' + st1 + '/>';
+/* אביזר ביד (מהמלתחה) — מצויר ליד כף היד השמאלית */
+function heroProp(id, o) {
+  if (id === 'shield')
+    return '<circle cx="36" cy="114" r="18" fill="' + o.GOLD + '" ' + o.st + '/>' +
+      '<circle cx="36" cy="114" r="13" fill="' + o.MET + '" ' + o.st1 + '/>' +
+      '<circle cx="36" cy="114" r="5.5" fill="' + o.GOLD + '" ' + o.st1 + '/>' +
+      '<circle cx="36" cy="99.5" r="1.8" fill="' + o.ol + '" opacity=".55"/><circle cx="36" cy="128.5" r="1.8" fill="' + o.ol + '" opacity=".55"/>' +
+      '<circle cx="21.5" cy="114" r="1.8" fill="' + o.ol + '" opacity=".55"/><circle cx="50.5" cy="114" r="1.8" fill="' + o.ol + '" opacity=".55"/>';
+  if (id === 'sword')
+    return '<path d="M35,54 L41,66 L40,100 L30,100 L29,66 Z" fill="' + o.MET + '" ' + o.st1 + '/>' +
+      '<line x1="35" y1="60" x2="35" y2="98" stroke="#fff" stroke-width="1.2" opacity=".5"/>' +
+      '<rect x="23" y="100" width="24" height="7" rx="3.5" fill="' + o.GOLD + '" ' + o.st1 + '/>' +
+      '<rect x="31.5" y="107" width="7" height="14" rx="3" fill="#6b4a2f" ' + o.st1 + '/>' +
+      '<circle cx="35" cy="124" r="4" fill="' + o.GOLD + '" ' + o.st1 + '/>';
+  if (id === 'saber')
+    return '<rect x="29" y="54" width="12" height="54" rx="6" fill="#8ef78a" opacity=".3"/>' +
+      '<rect x="33" y="57" width="4.2" height="49" rx="2.1" fill="#eaffe6"/>' +
+      '<rect x="31" y="106" width="8.5" height="16" rx="2.5" fill="' + o.MET + '" ' + o.st1 + '/>';
+  if (id === 'staff')
+    return '<rect x="33" y="60" width="5.5" height="60" rx="2.75" fill="#8a6a48" ' + o.st1 + '/>' +
+      '<circle cx="35.5" cy="52" r="12" fill="#ffd23f" opacity=".2"/>' +
+      '<circle cx="35.5" cy="52" r="7.5" fill="' + o.GOLD + '" ' + o.st1 + '/>' +
+      '<text x="35.5" y="43" font-size="9" fill="#ffd23f" text-anchor="middle">✦</text>';
+  if (id === 'dumbbell')
+    return '<rect x="18" y="112" width="38" height="5.5" rx="2.75" fill="' + o.MET + '" ' + o.st1 + '/>' +
+      '<rect x="18" y="104" width="9" height="22" rx="3.5" fill="' + o.D + '" ' + o.st1 + '/>' +
+      '<rect x="47" y="104" width="9" height="22" rx="3.5" fill="' + o.D + '" ' + o.st1 + '/>';
+  if (id === 'trident')
+    return '<rect x="33" y="64" width="5.5" height="56" rx="2.75" fill="#8a6a48" ' + o.st1 + '/>' +
+      '<path d="M25,64 L28,48 L31,63 L34,46 L38,63 L41,48 L46,64 Q36,58 25,64 Z" fill="' + o.GOLD + '" ' + o.st1 + '/>';
   return '';
 }
-function heroProp(av, c, dk, lt, ol, st, st1) {
-  if (av === 'knight')
-    return '<path d="M22,78 L40,78 L40,98 Q31,108 22,98 Z" fill="' + lt + '" ' + st + '/>' +
-      '<line x1="31" y1="80" x2="31" y2="101" stroke="' + ol + '" stroke-width="1.2"/><line x1="24" y1="88" x2="38" y2="88" stroke="' + ol + '" stroke-width="1.2"/>';
-  if (av === 'jedi')
-    return '<rect x="84" y="30" width="7" height="50" rx="3.5" fill="#8ef78a" opacity=".35"/>' +
-      '<rect x="86" y="32" width="3.4" height="46" rx="1.7" fill="#d6ffd0"/>' +
-      '<rect x="84.4" y="78" width="6.6" height="13" rx="2" fill="#59607a" ' + st1 + '/>';
-  if (av === 'wizard')
-    return '<rect x="29" y="34" width="4.5" height="58" rx="2.2" fill="#8a6a48" ' + st1 + '/>' +
-      '<circle cx="31" cy="30" r="10" fill="#ffd23f" opacity=".22"/><circle cx="31" cy="30" r="6.5" fill="#ffd23f" opacity=".9" ' + st1 + '/>';
-  if (av === 'athlete')
-    return '<rect x="29" y="84" width="15" height="7" rx="3.5" fill="#ffd23f" ' + st1 + '/><rect x="76" y="84" width="15" height="7" rx="3.5" fill="#ffd23f" ' + st1 + '/>';
-  return '';
-}
+let __svgUid = 0;
 function heroSVG(m, size) {
-  const lv = levelIndex(m.xp || 0);
-  const av = m.avatar || 'hero';
-  const c = m.color, dk = shade(c, -32), lt = shade(c, 40), ol = '#14092e';
-  const st = 'stroke="' + ol + '" stroke-width="2.5" stroke-linejoin="round"';
-  const st1 = 'stroke="' + ol + '" stroke-width="1.2"';
-  let s = '';
-  // גלימה (דרגה 4+)
-  if (lv >= 3) s += '<path d="M40,58 Q14,96 27,133 L60,113 L93,133 Q106,96 80,58 Z" fill="' + dk + '" ' + st + '/>';
-  // רגליים + מגפיים
-  s += '<rect x="46" y="96" width="12" height="34" rx="5" fill="' + c + '" ' + st + '/>' +
-       '<rect x="62" y="96" width="12" height="34" rx="5" fill="' + c + '" ' + st + '/>' +
-       '<rect x="43" y="122" width="17" height="13" rx="5" fill="' + dk + '" ' + st + '/>' +
-       '<rect x="60" y="122" width="17" height="13" rx="5" fill="' + dk + '" ' + st + '/>';
-  // זרועות בפוזת גיבור (אגרופים על המותניים)
-  s += '<rect x="24" y="60" width="13" height="30" rx="6.5" fill="' + c + '" ' + st + ' transform="rotate(20 30 75)"/>' +
-       '<rect x="83" y="60" width="13" height="30" rx="6.5" fill="' + c + '" ' + st + ' transform="rotate(-20 90 75)"/>' +
-       '<circle cx="37" cy="92" r="7" fill="' + dk + '" ' + st + '/>' +
-       '<circle cx="83" cy="92" r="7" fill="' + dk + '" ' + st + '/>';
-  // גוף + הבהוב תאורה
-  s += '<path d="M40,56 L80,56 L75,102 L45,102 Z" fill="' + c + '" ' + st + '/>' +
-       '<path d="M44,59 L60,59 L57,80 L47,80 Z" fill="' + lt + '" opacity=".55"/>';
-  // תוספות גוף לפי דמות (שמלה, כתפיות סרבל, גלימת ג'דיי)
-  s += heroBodySig(av, c, dk, lt, ol, st, st1);
-  // חגורה (זהב מדרגה 2)
-  s += '<rect x="43" y="95" width="34" height="8" rx="3.5" fill="' + (lv >= 1 ? '#ffd23f' : dk) + '" ' + st + '/>';
+  const uid = ++__svgUid;
+  const lv = levelIndex(m.xp || 0), av = m.avatar || 'hero';
+  const g = memberGear(m);
+  const c = m.color, dk = shade(c, -30), dk2 = shade(c, -52), lt = shade(c, 38), lt2 = shade(c, 62);
+  const skin = SKIN_TONES[g.skin], skinDk = shade(skin, -22), skinLt = shade(skin, 22);
+  const ol = '#241539';
+  const st = 'stroke="' + ol + '" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"';
+  const st1 = 'stroke="' + ol + '" stroke-width="1.4"';
+  const GID = n => 'g' + uid + n;
+  const B = 'url(#' + GID('b') + ')', D = 'url(#' + GID('d') + ')', S = 'url(#' + GID('s') + ')',
+        MET = 'url(#' + GID('m') + ')', GOLD = 'url(#' + GID('g') + ')';
+  const o = {c, dk, dk2, lt, lt2, B, D, S, MET, GOLD, skin, skinDk, ol, st, st1};
+  let s = '<defs>' +
+    '<linearGradient id="' + GID('b') + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + lt + '"/><stop offset=".55" stop-color="' + c + '"/><stop offset="1" stop-color="' + dk + '"/></linearGradient>' +
+    '<linearGradient id="' + GID('d') + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + dk + '"/><stop offset="1" stop-color="' + dk2 + '"/></linearGradient>' +
+    '<radialGradient id="' + GID('s') + '" cx=".38" cy=".3" r="1.05"><stop offset="0" stop-color="' + skinLt + '"/><stop offset=".68" stop-color="' + skin + '"/><stop offset="1" stop-color="' + skinDk + '"/></radialGradient>' +
+    '<linearGradient id="' + GID('m') + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eef1f8"/><stop offset="1" stop-color="#98a1b8"/></linearGradient>' +
+    '<linearGradient id="' + GID('g') + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe98a"/><stop offset="1" stop-color="#d9a03c"/></linearGradient>' +
+    '</defs>';
+  // צל רצפה
+  s += '<ellipse cx="70" cy="160" rx="33" ry="6.5" fill="rgba(0,0,0,.3)"/>';
+  // גלימה (מהמלתחה)
+  if (g.cape !== 'none') {
+    s += '<path d="M48,84 Q28,118 38,152 L70,140 L102,152 Q112,118 92,84 Z" fill="' + D + '" ' + st + '/>';
+    if (g.cape === 'royal')
+      s += '<path d="M48,84 Q28,118 38,152 L70,140 L102,152 Q112,118 92,84 Z" fill="none" stroke="#ffd23f" stroke-width="3" stroke-linejoin="round" opacity=".85"/>' +
+        '<circle cx="52" cy="92" r="2" fill="#ffd23f"/><circle cx="88" cy="92" r="2" fill="#ffd23f"/>';
+  }
+  // רגליים + מגפי זהב
+  const legFill = av === 'robot' ? MET : B;
+  s += '<rect x="55" y="114" width="13" height="32" rx="6.5" fill="' + legFill + '" ' + st + '/>' +
+       '<rect x="72" y="114" width="13" height="32" rx="6.5" fill="' + legFill + '" ' + st + '/>' +
+       '<rect x="52" y="140" width="18" height="13" rx="5.5" fill="' + GOLD + '" ' + st1 + '/>' +
+       '<rect x="70" y="140" width="18" height="13" rx="5.5" fill="' + GOLD + '" ' + st1 + '/>';
+  // זרועות + כפות ידיים
+  const handFill = av === 'robot' ? MET : S;
+  s += '<rect x="38" y="86" width="13" height="30" rx="6.5" fill="' + B + '" ' + st + ' transform="rotate(13 44 101)"/>' +
+       '<rect x="89" y="86" width="13" height="30" rx="6.5" fill="' + B + '" ' + st + ' transform="rotate(-13 96 101)"/>' +
+       '<circle cx="41" cy="118" r="7.5" fill="' + handFill + '" ' + st1 + '/>' +
+       '<circle cx="99" cy="118" r="7.5" fill="' + handFill + '" ' + st1 + '/>';
+  // גוף
+  s += '<path d="M52,84 Q70,78 88,84 L86,120 Q70,127 54,120 Z" fill="' + B + '" ' + st + '/>' +
+       '<path d="M56,86 Q64,83 70,84 L68,100 Q60,101 57,98 Z" fill="' + lt2 + '" opacity=".4"/>';
+  // תלבושת (מהמלתחה)
+  if (g.outfit === 'gi')
+    s += '<path d="M60,84 L70,101 L80,84" fill="none" ' + st1 + '/><rect x="54" y="108" width="32" height="7" rx="3.5" fill="' + dk2 + '" ' + st1 + '/>';
+  if (g.outfit === 'armor')
+    s += '<path d="M54,90 Q70,84 86,90 L85,105 Q70,111 55,105 Z" fill="' + MET + '" ' + st1 + '/>' +
+      '<circle cx="59" cy="94" r="1.7" fill="' + ol + '" opacity=".6"/><circle cx="81" cy="94" r="1.7" fill="' + ol + '" opacity=".6"/>';
+  if (g.outfit === 'royal')
+    s += '<path d="M56,85 L86,114" stroke="#ffd23f" stroke-width="6" opacity=".8" stroke-linecap="round"/>' +
+      '<path d="M52,84 Q70,78 88,84 L88,89 Q70,83 52,89 Z" fill="' + GOLD + '" ' + st1 + '/>';
+  // שמלת נסיכה
+  if (av === 'princess')
+    s += '<path d="M56,112 L84,112 L94,148 L46,148 Z" fill="' + B + '" ' + st + '/>' +
+      '<path d="M50,142 L90,142 L92,148 L48,148 Z" fill="' + lt + '" ' + st1 + '/>';
+  // חגורה (זהב מדרגה 2) + אבזם
+  s += '<rect x="52" y="113" width="36" height="9" rx="4" fill="' + (lv >= 1 ? GOLD : D) + '" ' + st1 + '/>' +
+       '<rect x="64" y="114.5" width="12" height="6" rx="2" fill="' + lt2 + '" opacity=".9"/>';
   // כתפיות שריון (דרגה 3+)
-  if (lv >= 2) s += '<ellipse cx="41" cy="57" rx="10" ry="6.5" fill="' + dk + '" ' + st + '/>' +
-                    '<ellipse cx="79" cy="57" rx="10" ry="6.5" fill="' + dk + '" ' + st + '/>';
-  // ראש לפי הדמות
-  s += heroHead(av, c, dk, lt, ol, st, st1);
-  // אביזר חתימה (מגן, חרב אור, מטה...)
-  s += heroProp(av, c, dk, lt, ol, st, st1);
-  // סמל חזה — האימוג'י האישי
-  s += '<circle cx="60" cy="76" r="12" fill="#fff" ' + st + '/>' +
-       '<text x="60" y="81" font-size="14" text-anchor="middle">' + m.emoji + '</text>';
-  // ברקים (דרגה 6+), כוכבים (7+), כתר (8)
-  if (lv >= 5) s += '<text x="12" y="72" font-size="15">⚡</text><text x="94" y="52" font-size="15">⚡</text>';
-  if (lv >= 6) s += '<text x="22" y="24" font-size="13" fill="#ffd23f">✦</text><text x="88" y="18" font-size="15" fill="#ffd23f">✦</text><text x="98" y="90" font-size="11" fill="#ffd23f">✦</text>';
-  if (lv >= 7) s += '<text x="60" y="14" font-size="20" text-anchor="middle">👑</text>';
-  const aura = lv >= 4 ? 'filter:drop-shadow(0 0 ' + (lv >= 6 ? 16 : 9) + 'px ' + c + ')' : '';
-  return '<svg class="hero" width="' + size + '" height="' + Math.round(size * 1.25) + '" viewBox="0 0 120 150" style="' + aura + '">' + s + '</svg>';
+  if (lv >= 2) s += '<ellipse cx="52" cy="86" rx="10" ry="6.5" fill="' + GOLD + '" ' + st1 + '/><ellipse cx="88" cy="86" rx="10" ry="6.5" fill="' + GOLD + '" ' + st1 + '/>';
+  // ראש
+  s += heroHead(av, o);
+  // סמל חזה
+  s += '<circle cx="70" cy="99" r="10" fill="#fff" ' + st1 + '/><text x="70" y="104" font-size="11.5" text-anchor="middle">' + m.emoji + '</text>';
+  // אביזר יד
+  s += heroProp(g.prop, o);
+  // אפקטי דרגה: ברקים (6+), כוכבים (7+), כתר (8)
+  if (lv >= 5) s += '<text x="12" y="82" font-size="16">⚡</text><text x="112" y="56" font-size="16">⚡</text>';
+  if (lv >= 6) s += '<text x="22" y="24" font-size="14" fill="#ffd23f">✦</text><text x="106" y="18" font-size="16" fill="#ffd23f">✦</text><text x="120" y="100" font-size="12" fill="#ffd23f">✦</text>';
+  if (lv >= 7) s += '<text x="70" y="12" font-size="21" text-anchor="middle">👑</text>';
+  const aura = lv >= 4 ? 'filter:drop-shadow(0 0 ' + (lv >= 6 ? 17 : 10) + 'px ' + c + ')' : '';
+  return '<svg class="hero" width="' + size + '" height="' + Math.round(size * 1.21) + '" viewBox="0 0 140 170" style="' + aura + '">' + s + '</svg>';
 }
 function ringHTML(pct, size, stroke, color, centerHTML) {
   const r = (size - stroke) / 2, c = 2 * Math.PI * r, off = c * (1 - Math.min(pct, 1));
@@ -1323,7 +1431,19 @@ function joinViewHTML() {
 function avatarPickerHTML(d, xp) {
   return '<div class="avgrid">' + AVATARS.map(a =>
     '<button class="' + ((d.avatar || 'hero') === a.id ? 'sel' : '') + '" onclick="obSet(\'avatar\',\'' + a.id + '\')">' +
-    heroSVG({avatar: a.id, color: d.color, emoji: d.emoji, xp: xp || 0}, 44) + a.n + '</button>').join('') + '</div>';
+    heroSVG({avatar: a.id, color: d.color, emoji: d.emoji, xp: xp || 0, gear: d.gear}, 44) + a.n + '</button>').join('') + '</div>';
+}
+/* מלתחה: בחירת אביזר/גלימה/תלבושת/גוון עור, עם נעילות לפי דרגה */
+function wardrobeHTML(d, lv) {
+  const row = (slot, title) => '<div class="field"><label>' + title + '</label><div class="chips">' +
+    GEAR[slot].map(it => {
+      const locked = it.lv > lv;
+      return '<button class="' + (d.gear[slot] === it.id ? 'sel' : '') + '"' + (locked ? ' style="opacity:.45"' : '') +
+        ' onclick="gearSet(\'' + slot + '\',\'' + it.id + '\',' + it.lv + ')">' + it.n + (locked ? ' 🔒ד' + (it.lv + 1) : '') + '</button>';
+    }).join('') + '</div></div>';
+  return row('prop', 'אביזר ביד') + row('cape', 'גלימה') + row('outfit', 'תלבושת') +
+    '<div class="field"><label>גוון עור</label><div class="colorrow">' +
+    SKIN_TONES.map((t, i) => '<button class="' + (d.gear.skin === i ? 'sel' : '') + '" style="background:' + t + '" onclick="gearSet(\'skin\',' + i + ',0)"></button>').join('') + '</div></div>';
 }
 function onboardHTML() {
   const d = state.editProfile || (state.editProfile = {name:'', emoji: HERO_EMOJIS[0], color: MEMBER_COLORS[3], avatar:'hero', startWeight:'', goalWeight:'', startArm:'', startBelly:'', startWaist:''});
@@ -1552,7 +1672,8 @@ function groupHTML() {
       const m = x.m, lv = levelIndex(m.xp), mw = memberWeek(m, w);
       return '<div class="card" onclick="openProfile(\'' + m.uid + '\')"><div class="mcard">' + heroSVG(m, 76) +
         '<div class="grow"><div class="row spread"><b style="font-size:1.1em">' + esc(m.name) + (m.uid === wi.captainUid ? ' ⚡' : '') + '</b><span class="medal">' + (medals[i] || '') + '</span></div>' +
-        '<div class="tiny">' + LEVELS[lv].e + ' ' + LEVELS[lv].n + ' · ' + m.xp + ' XP' + (m.streakDays ? ' · 🔥 רצף ' + m.streakDays : '') + '</div>' +
+        '<div style="font-size:.72em;letter-spacing:1.5px;color:#ffd23f">' + '✦'.repeat(lv + 1) + '<span style="opacity:.25">' + '✦'.repeat(7 - lv) + '</span></div>' +
+        '<div class="tiny">' + LEVELS[lv].e + ' ' + LEVELS[lv].n + ' · 💥 ' + m.xp.toLocaleString('en-US') + (m.streakDays ? ' · 🔥 ' + m.streakDays : '') + '</div>' +
         '<div class="mbar"><i style="width:' + Math.min(100, (x.min / wi.goalMin) * 100) + '%;background:' + m.color + '"></i></div>' +
         '<div class="tiny" style="margin-top:3px">💪 ' + x.min + ' / ' + wi.goalMin + ' דק\' · 😴 ' + (mw.sleep || 0) + ' / ' + SLEEP_WEEK_GOAL + ' שע\'' + (state.challenge.dailyHabit ? ' · 🥦 ' + (mw.habitDays || []).length + '/7' : '') + '</div></div></div></div>';
     }).join('') +
@@ -1571,17 +1692,25 @@ function profileHTML() {
   const lv = levelIndex(m.xp), next = LEVELS[lv+1];
   const pctLv = next ? (m.xp - LEVELS[lv].xp) / (next.xp - LEVELS[lv].xp) : 1;
   const mw = memberWeek(m, curWeek());
+  const rar = lv >= 6 ? ['UR', '#ff7ab6'] : lv >= 4 ? ['SSR', '#ffd23f'] : lv >= 2 ? ['SR', '#38b6ff'] : ['R', '#aab3c8'];
   let h = topbarHTML();
-  h += '<div class="card center"><div class="herowrap">' + heroSVG(m, 168) + '</div>' +
-    '<div style="font-weight:900;font-size:1.45em;margin-top:8px">' + esc(m.name) + (mine?'':' <span class="tiny">(חבר קבוצה)</span>') + '</div>' +
-    '<div class="chip" style="margin-top:4px">' + LEVELS[lv].e + ' ' + LEVELS[lv].n + '</div>' +
+  h += '<div class="card center"><div class="herowrap">' + heroSVG(m, 172) + '</div>' +
+    '<div style="font-weight:900;font-size:1.45em;margin-top:6px">' + esc(m.name) + (mine?'':' <span class="tiny">(חבר קבוצה)</span>') + '</div>' +
+    // שורת קלף משחק: נדירות · דרגה · כוח
+    '<div class="row" style="justify-content:center;gap:7px;margin-top:7px;flex-wrap:wrap">' +
+    '<span class="chip" style="color:' + rar[1] + ';border:1.5px solid ' + rar[1] + ';font-weight:900;letter-spacing:1px">' + rar[0] + '</span>' +
+    '<span class="chip">' + LEVELS[lv].e + ' דרגה ' + (lv+1) + ' · ' + LEVELS[lv].n + '</span>' +
+    '<span class="chip">💥 כוח ' + (m.xp || 0).toLocaleString('en-US') + '</span></div>' +
+    // כוכבי דרגה (עד 8)
+    '<div style="font-size:1.15em;letter-spacing:3px;color:#ffd23f;margin-top:5px;text-shadow:0 0 8px rgba(255,210,63,.6)">' +
+    '✦'.repeat(lv + 1) + '<span style="opacity:.22;text-shadow:none">' + '✦'.repeat(7 - lv) + '</span></div>' +
     '<div class="xpbar"><i style="width:' + Math.round(pctLv*100) + '%"></i></div>' +
     '<div class="tiny">' + m.xp + ' XP' + (next ? ' · עוד ' + (next.xp - m.xp) + ' לדרגת ' + next.n : ' · דרגה מקסימלית! 👑') + '</div>' +
     '<div class="row" style="justify-content:center;gap:8px;margin-top:8px;flex-wrap:wrap">' +
     '<span class="chip">💪 ' + (mw.min || 0) + ' דק\' השבוע</span><span class="chip">😴 ' + (mw.sleep || 0) + ' שע\' השבוע</span>' +
     (m.streakDays ? '<span class="chip">🔥 רצף ' + m.streakDays + '</span>' : '') + '</div>' +
-    (next ? '<div class="tiny" style="margin-top:6px">בדרגה הבאה הדמות מקבלת ' + (lv >= 6 ? 'כתר 👑' : lv >= 5 ? 'כוכבים ✦' : lv >= 4 ? 'ברקים ⚡' : lv >= 3 ? 'הילה זוהרת ✨' : lv >= 2 ? 'גלימה 🦸' : lv >= 1 ? 'כתפיות שריון' : 'חגורת זהב') + '!</div>' : '') +
-    (mine ? '<button class="btn" style="margin-top:10px" onclick="nav(\'settings\')">✏️ עריכת השם, הדמות והצבע</button>' : '') +
+    (next ? '<div class="tiny" style="margin-top:6px">בדרגה הבאה: כוכב נוסף ✦' + (lv >= 6 ? ', כתר 👑' : lv >= 5 ? ', כוכבים סביב הדמות' : lv >= 4 ? ', ברקים ⚡' : lv >= 3 ? ', הילה זוהרת ✨' : lv >= 2 ? ', גלימה בלתחה 🦸' : lv >= 1 ? ', כתפיות זהב' : ', חגורת זהב') + ' ופריטי מלתחה חדשים!</div>' : '') +
+    (mine ? '<button class="btn" style="margin-top:10px" onclick="nav(\'settings\')">🎽 מלתחה ועריכת הדמות</button>' : '') +
     '</div>';
 
   // תגים
@@ -1820,7 +1949,9 @@ function panelHTML() {
 
 function settingsHTML() {
   const me = state.members[state.me];
-  const d = state.editProfile || (state.editProfile = me ? {name: me.name, emoji: me.emoji, color: me.color, avatar: me.avatar || 'hero'} : {name:'', emoji:HERO_EMOJIS[0], color:MEMBER_COLORS[0], avatar:'hero'});
+  const d = state.editProfile || (state.editProfile = me
+    ? {name: me.name, emoji: me.emoji, color: me.color, avatar: me.avatar || 'hero', gear: Object.assign({}, memberGear(me))}
+    : {name:'', emoji:HERO_EMOJIS[0], color:MEMBER_COLORS[0], avatar:'hero', gear:{skin:1, prop:'none', cape:'none', outfit:'classic'}});
   let h = topbarHTML() + '<h2>הגדרות ⚙️</h2>';
   if (me) {
     h += '<div class="card"><b>✏️ עריכת הכרטיס שלי</b>' +
@@ -1829,6 +1960,12 @@ function settingsHTML() {
       '<div class="field"><label>סמל חזה</label><div class="emogrid">' + HERO_EMOJIS.map(e => '<button class="' + (d.emoji===e?'sel':'') + '" onclick="obSet(\'emoji\',\'' + e + '\')">' + e + '</button>').join('') + '</div></div>' +
       '<div class="field"><label>צבע אישי</label><div class="colorrow">' + MEMBER_COLORS.map(c => '<button class="' + (d.color===c?'sel':'') + '" style="background:' + c + '" onclick="obSet(\'color\',\'' + c + '\')"></button>').join('') + '</div></div>' +
       '<button class="btn primary" onclick="doSaveProfile()">שמירה</button></div>';
+    // מלתחה — פריטים נפתחים ככל שעולים בדרגות
+    const gLv = levelIndex(me.xp || 0);
+    h += '<div class="card"><div class="row spread"><b>🎽 המלתחה שלי</b><span class="tiny">פריטים נפתחים לפי דרגה</span></div>' +
+      '<div class="herowrap" style="margin:8px 0">' + heroSVG(Object.assign({}, me, {avatar: d.avatar, color: d.color, emoji: d.emoji, gear: d.gear}), 108) + '</div>' +
+      wardrobeHTML(d, gLv) +
+      '<button class="btn primary" onclick="doSaveProfile()">שמירת המראה 🎽</button></div>';
   }
   // הגדרות האתגר — למארגן בלבד
   const ch = state.challenge;
@@ -1947,6 +2084,14 @@ async function doCreate() {
   try { await Store.createChallenge(f); } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
 }
 function obSet(k, v) { (state.editProfile = state.editProfile || {})[k] = v; syncEditInputs(); render(); }
+function gearSet(slot, val, lvReq) {
+  const me = state.members[state.me];
+  const myLv = me ? levelIndex(me.xp || 0) : 0;
+  if (lvReq > myLv) { showToast('🔒 נפתח בדרגה ' + (lvReq + 1) + ' (' + LEVELS[lvReq].n + ')', 'bad'); return; }
+  syncEditInputs();
+  state.editProfile.gear[slot] = val;
+  render();
+}
 function syncEditInputs() {
   const n1 = $('obName'), n2 = $('setName');
   if (n1) state.editProfile.name = n1.value;
@@ -1978,7 +2123,7 @@ async function doSaveProfile() {
   syncEditInputs();
   const d = state.editProfile;
   if (!d.name.trim()) { showToast('חסר שם', 'bad'); return; }
-  await Store.saveProfile({name: d.name.trim(), emoji: d.emoji, color: d.color, avatar: d.avatar || 'hero'});
+  await Store.saveProfile({name: d.name.trim(), emoji: d.emoji, color: d.color, avatar: d.avatar || 'hero', gear: d.gear || {}});
   if (state.mode === 'demo') render();
   applyTheme(); showToast('נשמר ✔', 'gold');
 }
