@@ -1,7 +1,7 @@
 /* Fit or DIE! — service worker: מטמון קליפה בסיסי להתקנה כ-PWA.
    index.html תמיד network-first כדי שעדכוני גרסה יגיעו מיד (המטמון רק
    כגיבוי אופליין); נכסים סטטיים (אייקונים, מניפסט) cache-first. */
-const CACHE = 'fitordie-shell-v3';
+const CACHE = 'fitordie-shell-v4';
 const ASSETS = ['./', './index.html', './manifest.json',
   './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png'];
 
