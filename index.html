@@ -277,7 +277,7 @@ h2{font-size:1.15em;font-weight:800;margin-bottom:10px}
      - מצב ענן (FireStore): Firebase Auth + Firestore, סנכרון חי
        בין המשתתפים. ראו SETUP-FIREBASE.md להקמה.
    ============================================================ */
-const APP_VERSION = '1.6.0';
+const APP_VERSION = '1.7.0';
 
 /* ==== הגדרות Firebase ====
    אחרי הקמת הפרויקט (ראה SETUP-FIREBASE.md) מדביקים כאן את
@@ -328,16 +328,31 @@ const BADGES = [
   {id:'comeback', n:'הקאמבק',       e:'🦅', d:'חזרה לאימונים אחרי 3+ ימים בלי אימון'},
   {id:'sleep',    n:'שינה מלכותית', e:'😴', d:'49 שעות שינה בשבוע אחד'}
 ];
-/* אתגרים יומיים — כל אחד נמדד ומתוגמל בנפרד */
+/* אתגרים יומיים — עד 5 בשבוע, נקבעים ע"י קפטן השבוע. שדה ריק אינו
+   מפורסם ואינו נספר. כל אתגר נמדד ומתוגמל בנפרד. */
+const MAX_HABITS = 5;
 const DEFAULT_DAILY_HABITS = ['לאכול מתחת ל-100 גרם פחמימות', 'לא לאכול אחרי 20:00'];
 const DEFAULT_DAILY_HABIT = DEFAULT_DAILY_HABITS[0];   // תאימות לאחור
+/* ברירות המחדל של האתגר — משמשות שבוע שהקפטן עוד לא קבע בו אתגרים */
 function challengeHabits() {
   const ch = state.challenge || {};
   if (Array.isArray(ch.dailyHabits)) return ch.dailyHabits.filter(x => x && x.trim());
   return ch.dailyHabit ? [ch.dailyHabit] : [];
 }
+/* האתגרים היומיים של שבוע מסוים */
+function weekHabits(n) {
+  const saved = (state.weeks || {})[n];
+  if (saved && Array.isArray(saved.habits)) return saved.habits.filter(x => x && x.trim());
+  return challengeHabits();
+}
 function habDays(ws, i) { return (ws.hab && ws.hab[i]) || (i === 0 ? (ws.habitDays || []) : []); }
-function habTotal(ws) { return challengeHabits().reduce((s, _, i) => s + habDays(ws, i).length, 0); }
+/* סך ימי האתגרים שסומנו בשבוע — נספר מהנתונים עצמם, ללא תלות בהגדרה הנוכחית */
+function habTotal(ws) {
+  const hb = (ws && ws.hab) || {};
+  let n = Object.keys(hb).reduce((s, k) => s + ((hb[k] || []).length), 0);
+  if (!hb[0] && ws && ws.habitDays) n += ws.habitDays.length;
+  return n;
+}
 
 /* ===== מערכת מבוכים ודרקונים (v1.0) =====
    מחלקות D&D עם דיוקנאות AI (6 וריאציות לכל אחת), יכולות/לחשים שנפתחים
@@ -1411,7 +1426,8 @@ function homeHTML() {
 
   // ===== פקדי הקפטן — ישירות במסך הבית =====
   if (live && wi.captainUid === state.me) {
-    const d = state.weekDraft || (state.weekDraft = {goalMin: wi.goalMin, theme: wi.theme, bonus: wi.bonus, title: wi.title || ''});
+    const d = state.weekDraft || (state.weekDraft = {goalMin: wi.goalMin, theme: wi.theme, bonus: wi.bonus,
+      title: wi.title || '', habits: Array.from({length: MAX_HABITS}, (_, i) => weekHabits(w)[i] || '')});
     h += '<div class="card" style="border-color:#b388ff;box-shadow:0 0 14px rgba(179,136,255,.25)">' +
       '<div class="row spread"><b>⚡ אתה קפטן השבוע</b>' +
       '<button class="chip" onclick="state.capOpen=!state.capOpen;render()">' + (state.capOpen ? 'סגירה ▲' : 'ניהול השבוע ▼') + '</button></div>';
@@ -1425,7 +1441,13 @@ function homeHTML() {
         '<div class="tiny center" style="margin:4px 0 10px">טווח ' + GOAL_MIN_RANGE[0] + '–' + GOAL_MIN_RANGE[1] + ' · ברירת המחדל של האתגר: ' + ch.defaultGoalMin + '</div>' +
         '<div class="muted" style="margin-bottom:6px">ערכת הנושא של השבוע 🎨</div><div class="themegrid">' +
         THEMES.map(t => '<button class="' + (d.theme===t.id?'sel':'') + '" style="background:linear-gradient(135deg,' + t.bg2 + ',' + t.ac + ')" onclick="wkTheme(\'' + t.id + '\')">' + t.n + '</button>').join('') + '</div>' +
-        '<div class="field" style="margin-top:10px"><label>משימת בונוס (רשות) — שווה ‎+20 XP</label>' +
+        // עד 5 אתגרים יומיים לשבוע — שדה ריק לא מפורסם ולא נספר
+        '<div class="tiny" style="margin-top:14px"><b>🥦 האתגרים היומיים של השבוע</b> — עד ' + MAX_HABITS + '. ' +
+        'כל אחד שווה 10 XP ליום ובונוס 25 על 7/7. שדה ריק לא יפורסם ולא ייספר.</div>' +
+        Array.from({length: MAX_HABITS}, (_, i) =>
+          '<div class="field" style="margin-top:7px"><input id="wkHab' + i + '" value="' + esc((d.habits && d.habits[i]) || '') +
+          '" placeholder="אתגר ' + (i+1) + (i < 2 ? ' — למשל: ' + esc(DEFAULT_DAILY_HABITS[i]) : ' (רשות)') + '" oninput="wkHabSet(' + i + ',this.value)"></div>').join('') +
+        '<div class="field" style="margin-top:12px"><label>משימת בונוס שבועית (רשות) — ‎+20 XP חד-פעמי</label>' +
         '<input id="wkBonus" value="' + esc(d.bonus) + '" placeholder="למשל: אימון בחוץ בטבע 🌳" oninput="state.weekDraft.bonus=this.value"></div>' +
         '<button class="btn primary" style="width:100%" onclick="doWeekPlan()">פרסום לקבוצה 📣</button>' +
         '<button class="btn" style="width:100%;margin-top:8px" onclick="nav(\'panel\')">🥗 קביעת הפאנל השבועי ←</button>' +
@@ -1518,7 +1540,7 @@ function homeHTML() {
     (wi.groupSleepBonusDone ? '<div class="chip" style="margin-top:8px;color:var(--ok)">😴 יעד השינה הקבוצתי הושג! +20 לכולם</div>' : '') + '</div>';
 
   // האתגר היומי (למשל: מתחת ל-100 גרם פחמימות)
-  const habits = challengeHabits();
+  const habits = weekHabits(w);
   if (habits.length) {
     h += '<div class="card"><div class="row spread"><b>🥦 ' + (live ? 'אתגרים יומיים' : 'אתגרים יומיים') + '</b>' +
       '<span class="tiny">' + habTotal(ws) + '/' + (7 * habits.length) + ' ימים</span></div>' +
@@ -1636,7 +1658,7 @@ function groupHTML() {
         '<div style="font-size:.72em;letter-spacing:1.5px;color:#ffd23f">' + '✦'.repeat(lv + 1) + '<span style="opacity:.25">' + '✦'.repeat(7 - lv) + '</span></div>' +
         '<div class="tiny">' + (kls ? kls.e + ' ' + kls.n + ' · ' : LEVELS[lv].e + ' ') + 'דרגה ' + (lv+1) + ' · 💥 ' + m.xp.toLocaleString('en-US') + (m.streakDays ? ' · 🔥 ' + m.streakDays : '') + '</div>' +
         '<div class="mbar"><i style="width:' + Math.min(100, (x.min / wi.goalMin) * 100) + '%;background:' + m.color + '"></i></div>' +
-        '<div class="tiny" style="margin-top:3px">💪 ' + x.min + ' / ' + wi.goalMin + ' דק\' · 😴 ' + (mw.sleep || 0) + ' / ' + SLEEP_WEEK_GOAL + ' שע\'' + (challengeHabits().length ? ' · 🥦 ' + habTotal(mw) + '/' + (7 * challengeHabits().length) : '') + '</div></div></div></div>';
+        '<div class="tiny" style="margin-top:3px">💪 ' + x.min + ' / ' + wi.goalMin + ' דק\' · 😴 ' + (mw.sleep || 0) + ' / ' + SLEEP_WEEK_GOAL + ' שע\'' + (weekHabits(w).length ? ' · 🥦 ' + habTotal(mw) + '/' + (7 * weekHabits(w).length) : '') + '</div></div></div></div>';
     }).join('') +
     '<div class="card"><b>➕ הוספת חבר לקבוצה</b>' +
     '<div class="muted" style="margin:6px 0 8px">שולחים לחבר את הקישור לאפליקציה ואת קוד ההזמנה — הוא נרשם, מזין את הקוד, בונה דמות ומצטרף:</div>' +
@@ -1717,7 +1739,7 @@ function profileHTML() {
       '<span class="chip">💪 ' + hw.min + '/' + hwi.goalMin + ' דק\'' + (hw.goalBonus ? ' ✔' : '') + '</span>' +
       '<span class="chip">📅 ' + (hw.daysArr || []).length + ' ימים פעילים' + (hw.spreadBonus ? ' ✔' : '') + '</span>' +
       '<span class="chip">😴 ' + (hw.sleep || 0) + '/' + SLEEP_WEEK_GOAL + ' שע\'' + (hw.sleepGoalBonus ? ' ✔' : '') + '</span>' +
-      (challengeHabits().length ? '<span class="chip">🥦 ' + habTotal(hw) + '/' + (7 * challengeHabits().length) + '</span>' : '') + '</div>' +
+      (weekHabits(selUnit.i).length ? '<span class="chip">🥦 ' + habTotal(hw) + '/' + (7 * weekHabits(selUnit.i).length) + '</span>' : '') + '</div>' +
       '<div class="daydots" style="margin-top:10px">' + DAY_LETTERS.map((L, i) => {
         const dk2 = dayKey(new Date(hwStart + i * 864e5));
         return '<div class="daydot ' + ((hw.daysArr || []).includes(dk2) ? 'on' : '') + '"><i></i>' + L + '</div>';
@@ -1726,16 +1748,17 @@ function profileHTML() {
     const agg = selUnit.weeks.reduce((a, i) => {
       const x = memberWeek(m, i);
       a.min += x.min; a.days += (x.daysArr || []).length; a.sleep += x.sleep || 0;
-      a.habit += habTotal(x); a.goals += x.goalBonus ? 1 : 0; a.goalSum += weekInfo(i).goalMin;
+      a.habit += habTotal(x); a.habMax += 7 * weekHabits(i).length;
+      a.goals += x.goalBonus ? 1 : 0; a.goalSum += weekInfo(i).goalMin;
       return a;
-    }, {min:0, days:0, sleep:0, habit:0, goals:0, goalSum:0});
+    }, {min:0, days:0, sleep:0, habit:0, habMax:0, goals:0, goalSum:0});
     const n = selUnit.weeks.length;
     h += '<div class="tiny" style="margin-bottom:6px">סיכום חודשי · ' + n + ' שבועות</div>' +
       '<div class="row" style="flex-wrap:wrap;gap:8px">' +
       '<span class="chip">💪 ' + agg.min + '/' + agg.goalSum + ' דק\'</span>' +
       '<span class="chip">📅 ' + agg.days + ' ימים פעילים</span>' +
       '<span class="chip">😴 ' + (Math.round(agg.sleep * 10) / 10) + '/' + (SLEEP_WEEK_GOAL * n) + ' שע\'</span>' +
-      (challengeHabits().length ? '<span class="chip">🥦 ' + agg.habit + '/' + (7 * n * challengeHabits().length) + '</span>' : '') +
+      (agg.habMax ? '<span class="chip">🥦 ' + agg.habit + '/' + agg.habMax + '</span>' : '') +
       '<span class="chip">🏆 ' + agg.goals + '/' + n + ' שבועות ביעד</span></div>';
   }
   h += '</div>';
@@ -2035,8 +2058,10 @@ function settingsHTML() {
     h += '<div class="card"><b>🏆 הגדרות האתגר (מארגן)</b>' +
       '<div class="field" style="margin-top:8px"><label>שם האתגר</label><input id="chEditName" value="' + esc(ch.name) + '"></div>' +
       '<div class="field"><label>יעד שבועי בסיסי לאדם (דק\')</label><input id="chEditGoal" type="number" min="' + GOAL_MIN_RANGE[0] + '" max="' + GOAL_MIN_RANGE[1] + '" step="10" value="' + ch.defaultGoalMin + '"></div>' +
-      '<div class="field"><label>אתגר יומי 1 (ריק = כבוי)</label><input id="chEditHabit" value="' + esc(challengeHabits()[0] || '') + '" placeholder="' + esc(DEFAULT_DAILY_HABITS[0]) + '"></div>' +
-      '<div class="field"><label>אתגר יומי 2 (ריק = כבוי)</label><input id="chEditHabit2" value="' + esc(challengeHabits()[1] || '') + '" placeholder="' + esc(DEFAULT_DAILY_HABITS[1]) + '"></div>' +
+      '<div class="tiny" style="margin:10px 0 4px"><b>אתגרים יומיים — ברירת מחדל</b><br>אלה יחולו על שבוע שהקפטן לא קבע בו אתגרים משלו. הקפטן משנה אותם כל שבוע ממסך הבית.</div>' +
+      Array.from({length: MAX_HABITS}, (_, i) =>
+        '<div class="field"><input id="chEditHabit' + i + '" value="' + esc(challengeHabits()[i] || '') +
+        '" placeholder="אתגר ' + (i+1) + (i < 2 ? ' — ' + esc(DEFAULT_DAILY_HABITS[i]) : ' (ריק = כבוי)') + '"></div>').join('') +
       '<div class="field"><label>משך האתגר (שבועות, עד 52 = שנה)</label><input id="chEditWeeks" type="number" min="2" max="52" value="' + ch.weeksTotal + '"></div>' +
       '<div class="field"><label>תאריך פתיחה (תחילת שבוע 1)</label><input id="chEditStart" type="date" value="' + ch.startDate + '">' +
       '<div class="tiny" style="margin-top:4px">שינוי התאריך מזיז את מספור השבועות של כל הקבוצה</div></div>' +
@@ -2224,13 +2249,14 @@ async function doSaveProfile() {
 async function doSaveChallenge() {
   const name = $('chEditName').value.trim();
   const goal = Math.max(GOAL_MIN_RANGE[0], Math.min(GOAL_MIN_RANGE[1], parseInt($('chEditGoal').value) || state.challenge.defaultGoalMin));
-  const habit = $('chEditHabit').value.trim();
   const weeks = Math.max(curWeek() + 1, Math.min(52, parseInt($('chEditWeeks').value) || state.challenge.weeksTotal));
   const sd = $('chEditStart') && $('chEditStart').value;
   if (!name) { showToast('חסר שם לאתגר', 'bad'); return; }
-  const habit2 = ($('chEditHabit2') && $('chEditHabit2').value.trim()) || '';
+  const habits = Array.from({length: MAX_HABITS}, (_, i) => {
+    const el = $('chEditHabit' + i); return el ? el.value.trim() : '';
+  }).filter(x => x);
   const patch = {name, defaultGoalMin: goal, weeksTotal: weeks,
-    dailyHabits: [habit, habit2].filter(x => x), dailyHabit: habit};
+    dailyHabits: habits, dailyHabit: habits[0] || ''};
   if (sd && !isNaN(Date.parse(sd))) patch.startDate = dayKey(sundayOf(new Date(Date.parse(sd))));
   try {
     await Store.saveChallenge(patch);
@@ -2397,18 +2423,28 @@ async function doReact(fid, ri) {
   catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
 }
 function wkGoal(d) {
+  syncWeekInputs();
   const w = state.weekDraft;
   w.goalMin = Math.max(GOAL_MIN_RANGE[0], Math.min(GOAL_MIN_RANGE[1], w.goalMin + d));
-  const b = $('wkBonus'); if (b) w.bonus = b.value;
   render();
 }
-function wkTheme(t) { state.weekDraft.theme = t; const b = $('wkBonus'); if (b) state.weekDraft.bonus = b.value; render(); }
+function wkHabSet(i, v) { (state.weekDraft.habits = state.weekDraft.habits || [])[i] = v; }
+function syncWeekInputs() {
+  const d = state.weekDraft; if (!d) return;
+  const b = $('wkBonus'), t = $('wkTitle');
+  if (b) d.bonus = b.value;
+  if (t) d.title = t.value;
+  d.habits = d.habits || [];
+  for (let i = 0; i < MAX_HABITS; i++) { const el = $('wkHab' + i); if (el) d.habits[i] = el.value; }
+}
+function wkTheme(t) { syncWeekInputs(); state.weekDraft.theme = t; render(); }
 async function doWeekPlan() {
-  const d = state.weekDraft, b = $('wkBonus'), t = $('wkTitle');
-  if (b) d.bonus = b.value.trim();
-  if (t) d.title = t.value.trim();
+  syncWeekInputs();
+  const d = state.weekDraft;
+  const habits = (d.habits || []).map(x => (x || '').trim()).filter(x => x).slice(0, MAX_HABITS);
   try {
-    await Store.setWeekPlan(curWeek(), {goalMin: d.goalMin, theme: d.theme, bonus: d.bonus, title: d.title || '', captainUid: weekInfo(curWeek()).captainUid});
+    await Store.setWeekPlan(curWeek(), {goalMin: d.goalMin, theme: d.theme, bonus: (d.bonus || '').trim(),
+      title: (d.title || '').trim(), habits, captainUid: weekInfo(curWeek()).captainUid});
     state.view = 'home'; state.capOpen = false; applyTheme(); render();
     showToast('השבוע פורסם לקבוצה! 📣', 'gold');
   } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
