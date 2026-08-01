@@ -207,6 +207,12 @@ h2{font-size:1.15em;font-weight:800;margin-bottom:10px}
 .heroimg{display:inline-block;position:relative;border:3.5px solid;border-radius:18px;overflow:visible;background:rgba(0,0,0,.25)}
 .heroimg img{width:100%;height:100%;object-fit:cover;border-radius:14px;display:block}
 .heroimg .crown{position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:1.3em}
+/* החיה המלווה צמודה לדמות */
+.duo{display:inline-flex;align-items:flex-end;gap:6px}
+.petbadge{position:relative;border-radius:13px;border:2.5px solid var(--ac);overflow:hidden;background:rgba(0,0,0,.3);flex:0 0 auto}
+.petbadge img{width:100%;height:100%;object-fit:cover;display:block}
+.petbadge .plv{position:absolute;bottom:0;inset-inline-start:0;right:0;background:rgba(10,5,25,.8);font-size:.52em;font-weight:800;text-align:center;color:var(--ac)}
+.backbtn{font-size:1.35em;padding:4px 8px;line-height:1}
 
 /* ===== דף הדמות (RPG) ===== */
 .statrow{display:flex;align-items:center;gap:8px;margin-top:7px}
@@ -267,7 +273,7 @@ h2{font-size:1.15em;font-weight:800;margin-bottom:10px}
      - מצב ענן (FireStore): Firebase Auth + Firestore, סנכרון חי
        בין המשתתפים. ראו SETUP-FIREBASE.md להקמה.
    ============================================================ */
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 
 /* ==== הגדרות Firebase ====
    אחרי הקמת הפרויקט (ראה SETUP-FIREBASE.md) מדביקים כאן את
@@ -419,9 +425,13 @@ const SLOTS = [
   {id:'cloak',  n:'גלימה',  e:'🧥', lv:7, srcN:'2 דרגות'},
 ];
 const SLOT_NAMES = {shield:'מגן מבצר', helm:'קסדת קרב', boots:'מגפי ריצה', ring:'טבעת כוח', amulet:'קמע הגיבורים', cloak:'גלימת אלופים'};
+/* חמש קטגוריות ציוד שמשתפרות עם הזמן והישגי האתגר */
 const ITEM_TIERS = [
-  {min:0, n:'רגיל',   c:'#aab3c8'}, {min:1, n:'נדיר',  c:'#38b6ff'},
-  {min:3, n:'אגדי',   c:'#b388ff'}, {min:5, n:'אלוהי', c:'#ffd23f'},
+  {min:0, lvl:1, n:'רגיל',      c:'#aab3c8'},
+  {min:1, lvl:2, n:'משופר',     c:'#3ddc84'},
+  {min:3, lvl:3, n:'טיטניום',   c:'#38b6ff'},
+  {min:5, lvl:4, n:'אדמנטיום',  c:'#b388ff'},
+  {min:7, lvl:5, n:'קסום',      c:'#ffd23f'},
 ];
 function itemTier(plus) { let t = ITEM_TIERS[0]; ITEM_TIERS.forEach(x => { if (plus >= x.min) t = x; }); return t; }
 function classById(id) { return CLASSES.find(c => c.id === id); }
@@ -720,7 +730,7 @@ let Store = null;
 
 /* ---------- מצב הדגמה: localStorage ---------- */
 const DemoStore = {
-  LS: 'fitordie_demo_v6',
+  LS: 'fitordie_real_v1',
   data: null,
   async boot() {
     state.mode = 'demo';
@@ -902,98 +912,26 @@ const DemoStore = {
     this.save();
   },
 
-  /* נתוני הדגמה: אתגר בן 3 שבועות עם 4 גיבורים והיסטוריה חיה.
-     הדיווחים מוזנים דרך המנוע האמיתי כדי שהצבירות תמיד עקביות. */
+  /* הקבוצה האמיתית — דף חלק לגמרי: אפס נקודות, אפס דיווחים, פיד ריק.
+     שבוע 1 מתחיל ביום ראשון הקרוב. מרקו הוא ברירת המחדל וקפטן שבוע 1. */
   seed() {
-    const start = sundayOf(new Date(Date.now() - 16 * 864e5));
-    const ch = {id:'demo', name:'החבר\'ה של פעם 💪', code:'DEMO1', startDate: dayKey(start),
-      weeksTotal: 12, defaultGoalMin: 150, organizerUid:'u1', captainOrder:['u1','u2','u3','u4'],
-      dailyHabit: DEFAULT_DAILY_HABIT};
-    const mk = (uid, name, emoji, color, avatar) => ({uid, name, emoji, color, avatar, joinedAt: Date.parse(ch.startDate),
-      xp:0, badges:[], streakDays:0, lastActiveDay:null, weekStats:{}, measures:[]});
+    const ch = {id:'main', name:'Fit or DIE! 💀🔥', code:'FIT1', startDate: dayKey(nextSunday()),
+      weeksTotal: 12, defaultGoalMin: 150, organizerUid:'u1',
+      captainOrder:['u1','u2','u3','u4','u5','u6'], dailyHabit: DEFAULT_DAILY_HABIT, cheatUsed: 0};
+    const mk = (uid, name, emoji, color, avatar, pet) => ({uid, name, emoji, color, avatar, pet,
+      avatarImg: 'avatars/' + avatar + '-1.jpg', joinedAt: Date.parse(ch.startDate),
+      xp: 0, badges: [], streakDays: 0, lastActiveDay: null, weekStats: {}, measures: []});
     const members = {
-      u1: mk('u1','דני','🦸‍♂️','#38b6ff','fighter'), u2: mk('u2','מאיה','🦹‍♀️','#ff7ab6','cleric'),
-      u3: mk('u3','רון','🥷','#3ddc84','rogue'),     u4: mk('u4','שירה','🦸‍♀️','#ffb020','ranger'),
+      u1: mk('u1','מרקו','🦸‍♂️','#38b6ff','fighter','wolf'),
+      u2: mk('u2','בן',  '🥷','#3ddc84','rogue','owl'),
+      u3: mk('u3','יגאל','🔨','#f97316','dwarf','horse'),
+      u4: mk('u4','נטע', '🏹','#b388ff','ranger','butterfly'),
+      u5: mk('u5','בקה', '✨','#ff7ab6','cleric','unicorn'),
+      u6: mk('u6','ויקס','🔮','#2dd4bf','wizard','griffin'),
     };
-    // דיוקנאות AI וחיות מלוות
-    [['u1','fighter','wolf'], ['u2','cleric','butterfly'], ['u3','rogue','owl'], ['u4','ranger','horse']]
-      .forEach(([u, cl, pt]) => { members[u].avatarImg = 'avatars/' + cl + '-1.jpg'; members[u].pet = pt; });
-    const weeks = {2: {bonus:'אימון בחוץ בטבע 🌳',
-      panel: {host:'u3', motif:'ערב שייקים ירוקים 🥤', when:'חמישי 20:00', location:''},
-      brings: {u2:'סלט פירות', u4:'חטיפי אנרגיה ביתיים'}}};
-    const d = {challenge: ch, members, weeks, feed: [], me: null};
-    // מדידות גוף (משותפות): דני עם מעקב מלא כולל היקפים, מאיה משקל בלבד
-    members.u1.startWeight = 92; members.u1.goalWeight = 85;
-    members.u1.startArm = 36; members.u1.startBelly = 104; members.u1.startWaist = 98;
-    [[14,{weight:92, arm:36, belly:104, waist:98}], [7,{weight:91.2, belly:103}], [2,{weight:90.4, arm:36.5, belly:102, waist:96.5}]]
-      .forEach(([ago, e]) => members.u1.measures.push(Object.assign({date: dayKey(new Date(Date.now()-ago*864e5))}, e)));
-    members.u2.startWeight = 68; members.u2.goalWeight = 63;
-    [[12,{weight:68}], [4,{weight:67.1}]].forEach(([ago, e]) => members.u2.measures.push(Object.assign({date: dayKey(new Date(Date.now()-ago*864e5))}, e)));
-    // היסטוריית דיווחים: [ימים אחורה, uid, פעילות, דקות, הערה]
-    const hist = [
-      [15,'u1','run',35,'פתיחת אתגר!'], [15,'u2','walk',45,''], [14,'u3','gym',60,'חזרה לברזלים 😤'],
-      [13,'u1','walk',30,''], [13,'u4','run',25,''], [12,'u2','swim',40,'בריכה בבוקר'],
-      [11,'u3','bike',50,''], [10,'u1','gym',45,''], [10,'u4','walk',35,''],
-      [9,'u2','run',30,''], [8,'u3','run',40,''], [8,'u1','walk',25,''],
-      [7,'u4','ball',60,'כדורסל עם הילדים'], [6,'u2','walk',50,''], [5,'u3','gym',55,''],
-      [5,'u1','bike',40,''], [4,'u4','run',30,''], [3,'u2','gym',45,''],
-      [2,'u3','walk',35,''], [2,'u1','run',30,'לאט אבל בטוח'], [1,'u4','swim',45,''],
-    ];
-    const msgs = [
-      [15,'u2','יאללה מתחילים!! מי לא מדווח היום עושה כביסה לכולם 😂'],
-      [14,'u1','רון תרגיע עם השעה בחדר כושר, משאיר משהו לשארית השבוע?'],
-      [12,'u3','מי מצטרף מחר לרכיבה בשש בבוקר?'], [12,'u2','שש?? בבוקר?? חחחח בהצלחה'],
-      [7,'u4','הילדים ניצחו אותי 12-8 אבל זה נחשב אימון 😅'],
-      [3,'u1','שבוע אחרון היה חזק, השבוע שוברים שיא קבוצתי!'],
-    ];
-    const all = [
-      ...hist.map(h => ({kind:'ck', ago:h[0], uid:h[1], act:h[2], min:h[3], note:h[4]})),
-      ...msgs.map(m => ({kind:'msg', ago:m[0], uid:m[1], text:m[2]})),
-    ].sort((a,b) => b.ago - a.ago);
-    const seenWeeks = new Set();
-    all.forEach((it, idx) => {
-      const ts = Date.now() - it.ago * 864e5 - (12 - (idx % 10)) * 36e5;
-      const day = dayKey(new Date(ts));
-      if (it.kind === 'msg') { d.feed.push({id:'s'+idx, type:'msg', uid: it.uid, ts, text: it.text, reactions:{}}); return; }
-      const wN = Math.max(0, Math.floor(daysBetween(ch.startDate, day) / 7));
-      const goal = 150;
-      const res = applyCheckin(members[it.uid], wN, goal, {day, minutes: it.min, photo: null});
-      members[it.uid] = res.m;
-      d.feed.push({id:'c'+idx, type:'checkin', uid: it.uid, ts, week: wN, activity: it.act, minutes: it.min, text: it.note, photo: null, reactions:{}});
-      if (!seenWeeks.has(wN)) {   // ראשון בשטח — פותח השבוע
-        seenWeeks.add(wN);
-        members[it.uid].xp += 15;
-        if (!members[it.uid].badges.includes('first')) members[it.uid].badges.push('first');
-        d.feed.push({id:'fw'+idx, type:'system', ts: ts+1, text:'🎬 ראשון בשטח — ' + members[it.uid].name + ' עם הדיווח הראשון של שבוע ' + (wN+1) + '! +15', reactions:{}});
-      }
-      res.events.forEach(ev => {
-        const txt = eventFeedText(res.m.name, ev);
-        if (txt) d.feed.push({id:'e'+idx+ev.t, type:'system', ts: ts+1, text: txt, reactions:{}});
-      });
-    });
-    // דיווחי שינה אחרונים (דרך המנוע, כמו הדיווחים)
-    const sleepSeed = [['u1',3,8],['u1',2,7.5],['u1',1,6.5],['u2',2,8],['u2',1,8],['u3',1,7],['u4',2,7.5],['u4',1,7]];
-    sleepSeed.sort((a,b) => b[1] - a[1]).forEach(([uid, ago, h]) => {
-      const day = dayKey(new Date(Date.now() - ago * 864e5));
-      const wN = Math.max(0, Math.floor(daysBetween(ch.startDate, day) / 7));
-      members[uid] = applySleep(members[uid], wN, h, day).m;
-    });
-    // ימי אתגר תזונה אחרונים (דרך המנוע)
-    [['u1',2],['u1',1],['u2',1],['u4',2]].forEach(([uid, ago]) => {
-      const day = dayKey(new Date(Date.now() - ago * 864e5));
-      const wN = Math.max(0, Math.floor(daysBetween(ch.startDate, day) / 7));
-      members[uid] = applyHabit(members[uid], wN, day, true).m;
-    });
-    // ריאקציות לדוגמה
-    const cks = d.feed.filter(f => f.type === 'checkin');
-    if (cks.length > 3) { cks[cks.length-1].reactions = {r1:['u2','u4'], r2:['u3']}; cks[cks.length-3].reactions = {r0:['u1']}; }
-    // בונוסים קבוצתיים לשבועות שהושלמו (מחושב, לא מומצא)
-    [0,1].forEach(w => {
-      const g = 150 * 4;
-      const tot = Object.values(members).reduce((s,m) => s + ((m.weekStats[w]||{}).min||0), 0);
-      if (tot >= g) { weeks[w] = Object.assign({}, weeks[w], {groupBonusDone:true}); Object.values(members).forEach(m => m.xp += 30); }
-    });
-    return d;
+    // שבוע 1 — מרקו קפטן; אין עדיין יעדים/פאנל/היסטוריה
+    const weeks = {0: {captainUid: 'u1'}};
+    return {challenge: ch, members, weeks, feed: [], me: 'u1'};
   },
 };
 
@@ -1528,6 +1466,16 @@ function heroVisual(m, size) {
   return '<span class="heroimg" style="width:' + size + 'px;height:' + Math.round(size * 1.15) + 'px;border-color:' + rar + glow + '">' +
     '<img src="' + m.avatarImg + '" alt="">' + (lv >= 7 ? '<span class="crown">👑</span>' : '') + '</span>';
 }
+/* הדמות והחיה שלה יחד — החיה בגודל ~45% צמודה לדמות */
+function heroDuo(m, size) {
+  const pet = petById(m.pet);
+  if (!pet) return heroVisual(m, size);
+  const ps = Math.max(48, Math.round(size * 0.5)), lv = levelIndex(m.xp || 0);
+  return '<span class="duo">' + heroVisual(m, size) +
+    '<span class="petbadge" style="width:' + ps + 'px;height:' + ps + 'px">' +
+    '<img src="avatars/' + pet.id + '-' + (1 + (lv % 3)) + '.jpg" alt="" onerror="imgFallback(this)">' +
+    '<span class="plv">' + pet.e + ' ' + petLevel(m) + '</span></span></span>';
+}
 function ringHTML(pct, size, stroke, color, centerHTML) {
   const r = (size - stroke) / 2, c = 2 * Math.PI * r, off = c * (1 - Math.min(pct, 1));
   return '<div class="ringwrap" style="width:' + size + 'px;height:' + size + 'px">' +
@@ -1537,8 +1485,11 @@ function ringHTML(pct, size, stroke, color, centerHTML) {
     '<div class="ringcenter">' + centerHTML + '</div></div>';
 }
 function topbarHTML() {
+  const sub = ['sheet','profile','checkin','captain','settings','panel'].includes(state.view);
   return '<div class="topbar"><div class="logo">FIT or DIE! 💀<span class="ver">v' + APP_VERSION + '</span></div>' +
-    '<button class="gear" onclick="nav(\'settings\')">⚙️</button></div>';
+    '<span class="row" style="gap:2px">' +
+    (sub ? '<button class="backbtn" onclick="goBack()" title="חזרה">↩︎</button>' : '') +
+    '<button class="gear" onclick="nav(\'settings\')">⚙️</button></span></div>';
 }
 function feedUnread() {
   return state.feed.some(f => f.ts > (state.seenTs || 0) && f.uid !== state.me);
@@ -1659,23 +1610,52 @@ function homeHTML() {
     new Date(weekStartTs + 6 * 864e5).toLocaleDateString('he-IL', {day:'numeric', month:'numeric'});
   let h = topbarHTML();
 
-  // כרטיס שבוע + ניווט בין שבועות
-  h += '<div class="card weekcard"><div class="row spread">' +
-    '<button class="chip" ' + (w > 0 ? 'onclick="homeWeek(' + (w-1) + ')"' : 'style="opacity:.25"') + '>▶ הקודם</button>' +
-    '<b>שבוע ' + (w+1) + '/' + ch.weeksTotal + '</b>' +
-    '<button class="chip" ' + (w < cw ? 'onclick="homeWeek(' + (w+1) + ')"' : 'style="opacity:.25"') + '>הבא ◀</button></div>' +
+  // כרטיס שבוע + ניווט בין שבועות (מופיע רק כשכבר יש שבוע קודם לראות)
+  h += '<div class="card weekcard">' + (cw > 0
+    ? '<div class="row spread">' +
+      '<button class="chip" ' + (w > 0 ? 'onclick="homeWeek(' + (w-1) + ')"' : 'style="opacity:.25"') + '>▶ הקודם</button>' +
+      '<b>שבוע ' + (w+1) + '/' + ch.weeksTotal + '</b>' +
+      '<button class="chip" ' + (w < cw ? 'onclick="homeWeek(' + (w+1) + ')"' : 'style="opacity:.25"') + '>הבא ◀</button></div>'
+    : '<div class="center"><b>שבוע ' + (w+1) + '/' + ch.weeksTotal + '</b></div>') +
     '<div class="row spread" style="margin-top:6px"><span class="tiny">' + esc(ch.name) + ' · ' + weekDates + '</span>' +
     '<span class="chip">🎨 ' + themeById(wi.theme).n + '</span></div>' +
     (wi.title ? '<div style="margin-top:6px;font-weight:800;color:var(--ac)">🎯 ' + esc(wi.title) + '</div>' : '') +
-    '<div class="row spread" style="margin-top:7px"><span class="row" style="gap:6px">' + (cap ? avatarHTML(cap,1) + '<span class="muted">קפטן: <b style="color:var(--tx)">' + esc(cap.name) + '</b></span>' : '') + '</span>' +
+    '<div class="row spread" style="margin-top:7px"><span class="row" style="gap:6px">' + (cap ? avatarHTML(cap,1) + '<span class="muted">קפטן/ית: <b style="color:var(--tx)">' + esc(cap.name) + '</b></span>' : '') + '</span>' +
     '<span class="chip">' + (!live ? '📅 שבוע שהסתיים'
-      : notStarted ? '🚀 מתחילים בעוד ' + daysBetween(dayKey(), ch.startDate) + ' ימים'
+      : notStarted ? (daysBetween(dayKey(), ch.startDate) === 1 ? '🚀 מתחילים מחר!' : '🚀 מתחילים בעוד ' + daysBetween(dayKey(), ch.startDate) + ' ימים')
       : dl <= 1 ? '⏰ היום האחרון!' : '⏳ עוד ' + dl + ' ימים') + '</span></div>' +
     (live ? '' : '<button class="btn" style="width:100%;margin-top:9px" onclick="homeWeek(null)">חזרה לשבוע הנוכחי ←</button>') +
     '</div>';
 
-  if (live && wi.captainUid === state.me)
-    h += '<button class="captainbtn" onclick="nav(\'captain\')">⚡ זה השבוע שלך, קפטן! ניהול השבוע ←</button>';
+  // ===== פקדי הקפטן — ישירות במסך הבית =====
+  if (live && wi.captainUid === state.me) {
+    const d = state.weekDraft || (state.weekDraft = {goalMin: wi.goalMin, theme: wi.theme, bonus: wi.bonus, title: wi.title || ''});
+    h += '<div class="card" style="border-color:#b388ff;box-shadow:0 0 14px rgba(179,136,255,.25)">' +
+      '<div class="row spread"><b>⚡ אתה קפטן השבוע</b>' +
+      '<button class="chip" onclick="state.capOpen=!state.capOpen;render()">' + (state.capOpen ? 'סגירה ▲' : 'ניהול השבוע ▼') + '</button></div>';
+    if (state.capOpen) {
+      h += '<div class="field" style="margin-top:10px"><label>שם / כותרת לשבוע</label>' +
+        '<input id="wkTitle" value="' + esc(d.title) + '" placeholder="למשל: שבוע ההליכות בטבע" oninput="state.weekDraft.title=this.value"></div>' +
+        '<div class="muted" style="margin-bottom:5px">היעד השבועי לכל משתתף (דקות)</div>' +
+        '<div class="row"><button class="btn" onclick="wkGoal(-10)">−</button>' +
+        '<div class="grow center" style="font-weight:900;font-size:1.5em">' + d.goalMin + '</div>' +
+        '<button class="btn" onclick="wkGoal(10)">+</button></div>' +
+        '<div class="tiny center" style="margin:4px 0 10px">טווח ' + GOAL_MIN_RANGE[0] + '–' + GOAL_MIN_RANGE[1] + ' · ברירת המחדל של האתגר: ' + ch.defaultGoalMin + '</div>' +
+        '<div class="muted" style="margin-bottom:6px">ערכת הנושא של השבוע 🎨</div><div class="themegrid">' +
+        THEMES.map(t => '<button class="' + (d.theme===t.id?'sel':'') + '" style="background:linear-gradient(135deg,' + t.bg2 + ',' + t.ac + ')" onclick="wkTheme(\'' + t.id + '\')">' + t.n + '</button>').join('') + '</div>' +
+        '<div class="field" style="margin-top:10px"><label>משימת בונוס (רשות) — שווה ‎+20 XP</label>' +
+        '<input id="wkBonus" value="' + esc(d.bonus) + '" placeholder="למשל: אימון בחוץ בטבע 🌳" oninput="state.weekDraft.bonus=this.value"></div>' +
+        '<button class="btn primary" style="width:100%" onclick="doWeekPlan()">פרסום לקבוצה 📣</button>' +
+        '<button class="btn" style="width:100%;margin-top:8px" onclick="nav(\'panel\')">🥗 קביעת הפאנל השבועי ←</button>' +
+        // העברת קפטנות — רק הקפטן הנוכחי רשאי
+        '<div class="tiny" style="margin:14px 0 6px"><b>👑 העברת הקפטנות</b> — בחרו מי ינהל את השבוע במקומכם:</div>' +
+        '<div class="chips">' + Object.values(state.members).filter(x => x.uid !== state.me).map(x =>
+          '<button onclick="doHandCaptain(\'' + x.uid + '\')">' + x.emoji + ' ' + esc(x.name) + '</button>').join('') + '</div>';
+    }
+    h += '</div>';
+  } else if (live && cap) {
+    h += '<div class="tiny center" style="margin:-4px 0 12px">⚡ ' + esc(cap.name) + ' מנהל/ת את השבוע — היעד, הנושא, משימת הבונוס והפאנל בידיו</div>';
+  }
 
   // הפאנל השבועי — מפורסם במסך הבית
   const cheatPend = cheatPending() > 0;
@@ -1864,7 +1844,7 @@ function groupHTML() {
     arr.map((x, i) => {
       const m = x.m, lv = levelIndex(m.xp), mw = memberWeek(m, w);
       const kls = classById(m.avatar);
-      return '<div class="card" onclick="state.profileUid=\'' + m.uid + '\';state.view=\'sheet\';render()"><div class="mcard">' + heroVisual(m, 76) +
+      return '<div class="card" onclick="openSheet(\'' + m.uid + '\')"><div class="mcard">' + heroDuo(m, 76) +
         '<div class="grow"><div class="row spread"><b style="font-size:1.1em">' + esc(m.name) + (m.uid === wi.captainUid ? ' ⚡' : '') + '</b><span class="medal">' + (medals[i] || '') + '</span></div>' +
         '<div style="font-size:.72em;letter-spacing:1.5px;color:#ffd23f">' + '✦'.repeat(lv + 1) + '<span style="opacity:.25">' + '✦'.repeat(7 - lv) + '</span></div>' +
         '<div class="tiny">' + (kls ? kls.e + ' ' + kls.n + ' · ' : LEVELS[lv].e + ' ') + 'דרגה ' + (lv+1) + ' · 💥 ' + m.xp.toLocaleString('en-US') + (m.streakDays ? ' · 🔥 ' + m.streakDays : '') + '</div>' +
@@ -1888,7 +1868,7 @@ function profileHTML() {
   const mw = memberWeek(m, curWeek());
   const rar = lv >= 6 ? ['UR', '#ff7ab6'] : lv >= 4 ? ['SSR', '#ffd23f'] : lv >= 2 ? ['SR', '#38b6ff'] : ['R', '#aab3c8'];
   let h = topbarHTML();
-  h += '<div class="card center"><div class="herowrap">' + heroVisual(m, 172) + '</div>' +
+  h += '<div class="card center"><div class="herowrap">' + heroDuo(m, 172) + '</div>' +
     '<div style="font-weight:900;font-size:1.45em;margin-top:6px">' + esc(m.name) + (mine?'':' <span class="tiny">(חבר קבוצה)</span>') + '</div>' +
     // שורת קלף משחק: נדירות · דרגה · כוח
     '<div class="row" style="justify-content:center;gap:7px;margin-top:7px;flex-wrap:wrap">' +
@@ -2119,7 +2099,7 @@ function sheetHTML() {
 
   // כותרת: דיוקן, מחלקה, דרגה, כוכבים
   h += '<div class="card center">' +
-    '<div class="herowrap">' + heroVisual(m, 150) + '</div>' +
+    '<div class="herowrap">' + heroDuo(m, 150) + '</div>' +
     '<div style="font-weight:900;font-size:1.35em;margin-top:6px">' + esc(m.name) + '</div>' +
     '<div class="row" style="justify-content:center;gap:7px;margin-top:6px;flex-wrap:wrap">' +
     '<span class="chip" style="color:' + rar[1] + ';border:1.5px solid ' + rar[1] + ';font-weight:900;letter-spacing:1px">' + rar[0] + '</span>' +
@@ -2148,10 +2128,11 @@ function sheetHTML() {
         : sl.id === 'armor' ? (cls ? cls.ar : 'שריון הגיבור') : SLOT_NAMES[sl.id];
       return '<div class="gitem ' + (locked ? 'locked' : '') + '" style="' + (!locked && plus > 0 ? 'border-color:' + tier.c : '') + '">' +
         '<span class="ic">' + (locked ? '🔒' : sl.e) + '</span><span>' +
-        '<span class="nm" style="color:' + (locked ? '' : tier.c) + '">' + (locked ? sl.n : esc(nm)) + '</span>' +
-        '<div class="pl" style="color:' + tier.c + '">' + (locked ? 'ד\'' + (sl.lv + 1) : (plus > 0 ? '+' + plus + ' · ' + tier.n : tier.n)) + '</div></span></div>';
+        '<span class="nm" style="color:' + (locked ? '' : tier.c) + '">' + (locked ? sl.n : esc(nm)) + (locked || !plus ? '' : ' +' + plus) + '</span>' +
+        '<div class="pl" style="color:' + tier.c + '">' + (locked ? 'נפתח בדרגה ' + (sl.lv + 1) : tier.n + ' · דרגת ציוד ' + tier.lvl + '/5') + '</div></span></div>';
     }).join('') + '</div>' +
-    '<div class="tiny" style="margin-top:9px">כל פריט מתחזק בזכות משהו אחר: נשק ← ' + SLOTS[0].srcN + ' · שריון ← ' + SLOTS[1].srcN + ' · מגן ← ' + SLOTS[2].srcN + ' · קסדה ← ' + SLOTS[3].srcN + ' · מגפיים ← ' + SLOTS[4].srcN + ' · טבעת ← ' + SLOTS[5].srcN + ' · קמע ← ' + SLOTS[6].srcN + ' · גלימה ← ' + SLOTS[7].srcN + '</div></div>';
+    '<div class="tiny" style="margin-top:9px">דרגות הציוד: ' + ITEM_TIERS.map(t => '<span style="color:' + t.c + '">' + t.n + '</span>').join(' → ') + '</div>' +
+    '<div class="tiny" style="margin-top:5px">כל פריט מתחזק בזכות משהו אחר: נשק ← ' + SLOTS[0].srcN + ' · שריון ← ' + SLOTS[1].srcN + ' · מגן ← ' + SLOTS[2].srcN + ' · קסדה ← ' + SLOTS[3].srcN + ' · מגפיים ← ' + SLOTS[4].srcN + ' · טבעת ← ' + SLOTS[5].srcN + ' · קמע ← ' + SLOTS[6].srcN + ' · גלימה ← ' + SLOTS[7].srcN + '</div></div>';
 
   // יכולות ולחשים
   if (cls) {
@@ -2348,6 +2329,7 @@ function render() {
   state.feedStick = false;
 }
 function nav(v) {
+  if (v !== state.view) pushNav();
   state.reactFor = null;
   if (v === 'profile' || v === 'sheet') { state.profileUid = state.me; state.profWeek = null; state.measForm = false; state.editWeights = false; }
   if (v === 'checkin') state.draft = {activity: (state.draft && state.draft.activity) || 'walk', minutes: 30, note:'', photo:null};
@@ -2363,7 +2345,18 @@ function nav(v) {
   state.view = v; render();
 }
 function homeWeek(n) { state.homeWeek = n; render(); window.scrollTo(0, 0); }
-function openProfile(uid) { state.profileUid = uid; state.profWeek = null; state.measForm = false; state.editWeights = false; state.view = 'profile'; render(); }
+function openProfile(uid) { pushNav(); state.profileUid = uid; state.profWeek = null; state.measForm = false; state.editWeights = false; state.view = 'profile'; render(); }
+function openSheet(uid) { pushNav(); state.profileUid = uid; state.view = 'sheet'; render(); }
+/* מחסנית ניווט לכפתור החזרה ↩︎ */
+function pushNav() { (state.navStack = state.navStack || []).push({v: state.view, p: state.profileUid}); if (state.navStack.length > 12) state.navStack.shift(); }
+function goBack() {
+  const st = state.navStack || [];
+  const prev = st.pop();
+  state.reactFor = null; state.panelEdit = false;
+  if (prev) { state.view = prev.v; state.profileUid = prev.p; render(); }
+  else nav('home');
+}
+function homeWeek(n) { state.homeWeek = n; render(); window.scrollTo(0, 0); }
 
 /* ===================== פעולות ===================== */
 function setAuthTab(t) { state.authTab = t; render(); }
@@ -2627,8 +2620,21 @@ async function doWeekPlan() {
   if (t) d.title = t.value.trim();
   try {
     await Store.setWeekPlan(curWeek(), {goalMin: d.goalMin, theme: d.theme, bonus: d.bonus, title: d.title || '', captainUid: weekInfo(curWeek()).captainUid});
-    state.view = 'home'; applyTheme(); render();
+    state.view = 'home'; state.capOpen = false; applyTheme(); render();
     showToast('השבוע פורסם לקבוצה! 📣', 'gold');
+  } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
+}
+/* העברת הקפטנות למשתתף אחר — רק הקפטן הנוכחי */
+async function doHandCaptain(uid) {
+  const w = curWeek(), wi = weekInfo(w);
+  if (wi.captainUid !== state.me) { showToast('רק קפטן השבוע יכול להעביר את התפקיד', 'bad'); return; }
+  const to = state.members[uid];
+  if (!to || !confirm('להעביר את הקפטנות ל' + to.name + ' לשבוע הזה?')) return;
+  try {
+    await Store.setWeekPlan(w, {goalMin: wi.goalMin, theme: wi.theme, bonus: wi.bonus, title: wi.title || '', captainUid: uid});
+    state.capOpen = false; state.weekDraft = null;
+    render();
+    showToast('👑 ' + to.name + ' קפטן/ית השבוע!', 'gold');
   } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
 }
 async function doClaimBonus() {
