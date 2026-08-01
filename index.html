@@ -203,6 +203,10 @@ h2{font-size:1.15em;font-weight:800;margin-bottom:10px}
 .avgrid .hero{animation:none}
 .chip.sel{border:1.5px solid var(--ac);color:var(--ac);background:rgba(255,210,63,.14)}
 .wkhist{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+/* דיוקן דמות מותאם (תמונת AI) במסגרת קלף לפי נדירות */
+.heroimg{display:inline-block;position:relative;border:3.5px solid;border-radius:18px;overflow:visible;background:rgba(0,0,0,.25)}
+.heroimg img{width:100%;height:100%;object-fit:cover;border-radius:14px;display:block}
+.heroimg .crown{position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:1.3em}
 
 /* ===== התאמה למסך מחשב (v0.5) =====
    מסכי הכרטיסים נפרסים לשתי עמודות; הצ'אט נשאר עמודה קריאה. */
@@ -234,7 +238,7 @@ h2{font-size:1.15em;font-weight:800;margin-bottom:10px}
      - מצב ענן (FireStore): Firebase Auth + Firestore, סנכרון חי
        בין המשתתפים. ראו SETUP-FIREBASE.md להקמה.
    ============================================================ */
-const APP_VERSION = '0.7.0';
+const APP_VERSION = '0.8.0';
 
 /* ==== הגדרות Firebase ====
    אחרי הקמת הפרויקט (ראה SETUP-FIREBASE.md) מדביקים כאן את
@@ -1365,6 +1369,16 @@ function heroSVG(m, size) {
   const aura = lv >= 4 ? 'filter:drop-shadow(0 0 ' + (lv >= 6 ? 17 : 10) + 'px ' + c + ')' : '';
   return '<svg class="hero" width="' + size + '" height="' + Math.round(size * 1.21) + '" viewBox="0 0 140 170" style="' + aura + '">' + s + '</svg>';
 }
+/* התצוגה של דמות משתתף: דיוקן מותאם (תמונת AI שהועלתה) במסגרת נדירות,
+   או הדמות המצוירת. */
+function heroVisual(m, size) {
+  if (!m.avatarImg) return heroSVG(m, size);
+  const lv = levelIndex(m.xp || 0);
+  const rar = lv >= 6 ? '#ff7ab6' : lv >= 4 ? '#ffd23f' : lv >= 2 ? '#38b6ff' : '#aab3c8';
+  const glow = lv >= 4 ? ';box-shadow:0 0 ' + (lv >= 6 ? 22 : 12) + 'px ' + m.color : '';
+  return '<span class="heroimg" style="width:' + size + 'px;height:' + Math.round(size * 1.15) + 'px;border-color:' + rar + glow + '">' +
+    '<img src="' + m.avatarImg + '" alt="">' + (lv >= 7 ? '<span class="crown">👑</span>' : '') + '</span>';
+}
 function ringHTML(pct, size, stroke, color, centerHTML) {
   const r = (size - stroke) / 2, c = 2 * Math.PI * r, off = c * (1 - Math.min(pct, 1));
   return '<div class="ringwrap" style="width:' + size + 'px;height:' + size + 'px">' +
@@ -1467,7 +1481,7 @@ function pickUserHTML() {
   return topbarHTML() + '<h2>מצב הדגמה — בחרו דמות 🎭</h2>' +
     '<div class="muted" style="margin-bottom:12px">כדי להתרשם מהאפליקציה בוחרים דמות. אפשר להחליף בכל רגע מההגדרות.</div>' +
     Object.values(state.members).map(m =>
-      '<div class="card"><button class="persona" onclick="DemoStore.pickUser(\'' + m.uid + '\')">' + heroSVG(m, 62) +
+      '<div class="card"><button class="persona" onclick="DemoStore.pickUser(\'' + m.uid + '\')">' + heroVisual(m, 62) +
       '<div class="grow"><b>' + esc(m.name) + '</b><div class="tiny">' + LEVELS[levelIndex(m.xp)].n + ' · ' + m.xp + ' XP</div></div><span style="font-size:1.4em">←</span></button></div>').join('');
 }
 
@@ -1556,9 +1570,18 @@ function homeHTML() {
       ? '<span class="chip" style="color:var(--ok)">הלילה: ' + todaySleep.h + ' שע\'' + (todaySleep.xp ? ' +' + todaySleep.xp + ' XP' : '') + ' ✔</span>'
       : '<button class="btn" onclick="doSleep()">+ דיווח שינה</button>') + '</div>' +
     (todaySleep ? '<div class="row" style="margin-top:6px"><button class="chip" onclick="doSleep()">עדכון הדיווח</button></div>' : '') +
-    '<div class="row spread" style="margin-top:9px"><span class="muted">אני</span><span class="tiny">' + mySleep + ' / ' + SLEEP_WEEK_GOAL + ' שע\' · 56 = מושלם</span></div>' +
+    // הלילות שלי השבוע — מעקב אישי יומי
+    '<div class="tiny" style="margin-top:9px">הלילות שלי השבוע:</div>' +
+    '<div class="row" style="gap:4px;margin-top:4px">' + DAY_LETTERS.map((L, i) => {
+      const dk2 = dayKey(new Date(weekStartTs + i * 864e5));
+      const e = (ws.sleepLog || {})[dk2];
+      const stl = !e ? 'opacity:.4' : e.h >= 8 ? 'border-color:var(--ac);color:var(--ac);background:rgba(255,210,63,.14)' : e.h >= SLEEP_NIGHT_MIN ? 'border-color:var(--ok);color:var(--ok)' : 'opacity:.75';
+      return '<div style="flex:1;text-align:center"><div class="tiny">' + L + '</div>' +
+        '<div class="chip" style="width:100%;justify-content:center;padding:3px 0;border:1px solid var(--line);' + stl + '">' + (e ? e.h : '·') + '</div></div>';
+    }).join('') + '</div>' +
+    '<div class="row spread" style="margin-top:9px"><span class="muted">אני השבוע</span><span class="tiny">' + mySleep + ' / ' + SLEEP_WEEK_GOAL + ' שע\' · 56 = מושלם</span></div>' +
     '<div class="mbar"><i style="width:' + Math.min(100, (mySleep / SLEEP_WEEK_GOAL) * 100) + '%;background:var(--ac)"></i></div>' +
-    '<div class="row spread" style="margin-top:7px"><span class="muted">הקבוצה</span><span class="tiny">' + gSleep + ' / ' + sleepGroupGoal + ' שע\'</span></div>' +
+    '<div class="row spread" style="margin-top:7px"><span class="muted">הקבוצה השבוע</span><span class="tiny">' + gSleep + ' / ' + sleepGroupGoal + ' שע\'</span></div>' +
     '<div class="mbar"><i style="width:' + Math.min(100, (gSleep / sleepGroupGoal) * 100) + '%;background:#b388ff"></i></div>' +
     '<div class="tiny" style="margin-top:6px">7 שע\' ומעלה בלילה = XP · 8 = מקסימום (יותר מזה לא נספר)</div>' +
     (wi.groupSleepBonusDone ? '<div class="chip" style="margin-top:8px;color:var(--ok)">😴 יעד השינה הקבוצתי הושג! +20 לכולם</div>' : '') + '</div>';
@@ -1670,7 +1693,7 @@ function groupHTML() {
   return topbarHTML() + '<h2>הקבוצה 👥 <span class="muted" style="font-weight:400;font-size:.7em">שבוע ' + (w+1) + '</span></h2>' +
     arr.map((x, i) => {
       const m = x.m, lv = levelIndex(m.xp), mw = memberWeek(m, w);
-      return '<div class="card" onclick="openProfile(\'' + m.uid + '\')"><div class="mcard">' + heroSVG(m, 76) +
+      return '<div class="card" onclick="openProfile(\'' + m.uid + '\')"><div class="mcard">' + heroVisual(m, 76) +
         '<div class="grow"><div class="row spread"><b style="font-size:1.1em">' + esc(m.name) + (m.uid === wi.captainUid ? ' ⚡' : '') + '</b><span class="medal">' + (medals[i] || '') + '</span></div>' +
         '<div style="font-size:.72em;letter-spacing:1.5px;color:#ffd23f">' + '✦'.repeat(lv + 1) + '<span style="opacity:.25">' + '✦'.repeat(7 - lv) + '</span></div>' +
         '<div class="tiny">' + LEVELS[lv].e + ' ' + LEVELS[lv].n + ' · 💥 ' + m.xp.toLocaleString('en-US') + (m.streakDays ? ' · 🔥 ' + m.streakDays : '') + '</div>' +
@@ -1694,7 +1717,7 @@ function profileHTML() {
   const mw = memberWeek(m, curWeek());
   const rar = lv >= 6 ? ['UR', '#ff7ab6'] : lv >= 4 ? ['SSR', '#ffd23f'] : lv >= 2 ? ['SR', '#38b6ff'] : ['R', '#aab3c8'];
   let h = topbarHTML();
-  h += '<div class="card center"><div class="herowrap">' + heroSVG(m, 172) + '</div>' +
+  h += '<div class="card center"><div class="herowrap">' + heroVisual(m, 172) + '</div>' +
     '<div style="font-weight:900;font-size:1.45em;margin-top:6px">' + esc(m.name) + (mine?'':' <span class="tiny">(חבר קבוצה)</span>') + '</div>' +
     // שורת קלף משחק: נדירות · דרגה · כוח
     '<div class="row" style="justify-content:center;gap:7px;margin-top:7px;flex-wrap:wrap">' +
@@ -1806,20 +1829,25 @@ function profileHTML() {
       '<button class="btn" onclick="state.editWeights=!state.editWeights;state.measForm=false;render()">⚙️ התחלה ויעד</button></div>' +
       (mine && !getMeasures(m).length && !m.startWeight && !m.startArm && !m.startBelly && !m.startWaist && !state.measForm && !state.editWeights
         ? '<div class="tiny" style="margin-top:8px;color:var(--ac)">👋 עוד אין מדידות — לחצו "+ מדידה חדשה" והזינו נקודת פתיחה (משקל והיקפים)</div>' : '') +
-      (state.measForm ? '<div class="row" style="margin-top:8px;flex-wrap:wrap;gap:6px">' +
-        '<input id="mW" type="number" step="0.1" inputmode="decimal" placeholder="משקל" style="flex:1;min-width:74px">' +
-        '<input id="mArm" type="number" step="0.5" inputmode="decimal" placeholder="זרוע" style="flex:1;min-width:74px">' +
-        '<input id="mBelly" type="number" step="0.5" inputmode="decimal" placeholder="בטן" style="flex:1;min-width:74px">' +
-        '<input id="mWaist" type="number" step="0.5" inputmode="decimal" placeholder="מותניים" style="flex:1;min-width:74px">' +
-        '<button class="btn" onclick="doMeasureInline()">שמירה</button></div>' +
-        '<div class="tiny" style="margin-top:4px">ממלאים מה שמדדתם — אפשר גם חלק מהשדות (משקל בק״ג, היקפים בס״מ)</div>' : '') +
-      (state.editWeights ? '<div class="row" style="margin-top:8px;flex-wrap:wrap;gap:6px">' +
-        '<input id="wStart" type="number" step="0.1" inputmode="decimal" placeholder="משקל התחלה" value="' + (m.startWeight || '') + '" style="flex:1;min-width:90px">' +
-        '<input id="wGoal" type="number" step="0.1" inputmode="decimal" placeholder="משקל יעד" value="' + (m.goalWeight || '') + '" style="flex:1;min-width:90px">' +
-        '<input id="wArmS" type="number" step="0.5" inputmode="decimal" placeholder="זרוע התחלה" value="' + (m.startArm || '') + '" style="flex:1;min-width:90px">' +
-        '<input id="wBellyS" type="number" step="0.5" inputmode="decimal" placeholder="בטן התחלה" value="' + (m.startBelly || '') + '" style="flex:1;min-width:90px">' +
-        '<input id="wWaistS" type="number" step="0.5" inputmode="decimal" placeholder="מותניים התחלה" value="' + (m.startWaist || '') + '" style="flex:1;min-width:90px">' +
-        '<button class="btn" onclick="doSetWeightsInline()">שמירה</button></div>' : '') : '') + '</div>';
+      (state.measForm
+        ? '<div class="tiny" style="margin-top:10px"><b>מדידה חדשה:</b> מזינים את מה שמדדתם עכשיו — אפשר גם רק שדה אחד. כל מדידה נוספת לגרף לפי התאריך.</div>' +
+          '<div class="row" style="margin-top:6px;flex-wrap:wrap;gap:6px">' +
+          '<div class="field" style="flex:1;min-width:44%"><label>⚖️ משקל (ק"ג)</label><input id="mW" type="number" step="0.1" inputmode="decimal" placeholder="למשל 92.5"></div>' +
+          '<div class="field" style="flex:1;min-width:44%"><label>💪 היקף זרוע (ס"מ)</label><input id="mArm" type="number" step="0.5" inputmode="decimal" placeholder="למשל 36"></div>' +
+          '<div class="field" style="flex:1;min-width:44%"><label>⚪ היקף בטן (ס"מ)</label><input id="mBelly" type="number" step="0.5" inputmode="decimal" placeholder="למשל 104"></div>' +
+          '<div class="field" style="flex:1;min-width:44%"><label>📏 היקף מותניים (ס"מ)</label><input id="mWaist" type="number" step="0.5" inputmode="decimal" placeholder="למשל 98"></div></div>' +
+          '<button class="btn primary" style="width:100%" onclick="doMeasureInline()">שמירת המדידה 📏</button>'
+        : '') +
+      (state.editWeights
+        ? '<div class="tiny" style="margin-top:10px"><b>נקודת הפתיחה והיעד:</b> אלה הערכים שמהם נמדדת ההתקדמות שלך (ה"התחלה" בכרטיס). יעד מוגדר רק למשקל.</div>' +
+          '<div class="row" style="margin-top:6px;flex-wrap:wrap;gap:6px">' +
+          '<div class="field" style="flex:1;min-width:44%"><label>⚖️ משקל התחלה (ק"ג)</label><input id="wStart" type="number" step="0.1" inputmode="decimal" value="' + (m.startWeight || '') + '" placeholder="—"></div>' +
+          '<div class="field" style="flex:1;min-width:44%"><label>🎯 משקל היעד (ק"ג)</label><input id="wGoal" type="number" step="0.1" inputmode="decimal" value="' + (m.goalWeight || '') + '" placeholder="—"></div>' +
+          '<div class="field" style="flex:1;min-width:44%"><label>💪 זרוע התחלה (ס"מ)</label><input id="wArmS" type="number" step="0.5" inputmode="decimal" value="' + (m.startArm || '') + '" placeholder="—"></div>' +
+          '<div class="field" style="flex:1;min-width:44%"><label>⚪ בטן התחלה (ס"מ)</label><input id="wBellyS" type="number" step="0.5" inputmode="decimal" value="' + (m.startBelly || '') + '" placeholder="—"></div>' +
+          '<div class="field" style="flex:1;min-width:44%"><label>📏 מותניים התחלה (ס"מ)</label><input id="wWaistS" type="number" step="0.5" inputmode="decimal" value="' + (m.startWaist || '') + '" placeholder="—"></div></div>' +
+          '<button class="btn primary" style="width:100%" onclick="doSetWeightsInline()">שמירת התחלה ויעד</button>'
+        : '') : '') + '</div>';
 
   h += '<div class="card"><div class="row spread"><b>📷 לפני ← אחרי</b><span class="tiny">🤝 משותף לקבוצה</span></div>' +
     '<div class="row" style="gap:10px;margin-top:8px"><div class="grow"><div class="photoslot"' + (mine ? ' onclick="$(\'phStart\').click()"' : '') + '>' +
@@ -1965,7 +1993,13 @@ function settingsHTML() {
     h += '<div class="card"><div class="row spread"><b>🎽 המלתחה שלי</b><span class="tiny">פריטים נפתחים לפי דרגה</span></div>' +
       '<div class="herowrap" style="margin:8px 0">' + heroSVG(Object.assign({}, me, {avatar: d.avatar, color: d.color, emoji: d.emoji, gear: d.gear}), 108) + '</div>' +
       wardrobeHTML(d, gLv) +
-      '<button class="btn primary" onclick="doSaveProfile()">שמירת המראה 🎽</button></div>';
+      '<button class="btn primary" onclick="doSaveProfile()">שמירת המראה 🎽</button>' +
+      '<div class="field" style="margin-top:14px"><label>🖼️ דיוקן דמות משלך (למשל ציור AI)</label>' +
+      '<div class="row" style="gap:8px;flex-wrap:wrap">' +
+      '<button class="btn" onclick="$(\'avImgIn\').click()">' + (me.avatarImg ? 'החלפת הדיוקן' : 'העלאת תמונה') + '</button>' +
+      (me.avatarImg ? '<button class="btn danger" onclick="clearAvatarImg()">חזרה לדמות המצוירת</button>' : '') + '</div>' +
+      '<input id="avImgIn" type="file" accept="image/*" style="display:none" onchange="avatarImgUpload(this)">' +
+      '<div class="tiny" style="margin-top:5px">יוצרים דיוקן בכלי AI (או כל ציור/תמונה), מעלים — והוא יוצג בכרטיס ובקבוצה בתוך מסגרת לפי הנדירות שלך. תמונה מרובעת עובדת הכי טוב.</div></div></div>';
   }
   // הגדרות האתגר — למארגן בלבד
   const ch = state.challenge;
@@ -2356,6 +2390,21 @@ async function doSetWeightsInline() {
     render();
     showToast('עודכן ✔', 'gold');
   } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
+}
+async function avatarImgUpload(inp) {
+  if (!inp.files || !inp.files[0]) return;
+  showToast('מכווץ תמונה... 🖼️');
+  try {
+    const data = await compressImage(inp.files[0], 340);
+    await Store.saveShared({avatarImg: data});
+    render();
+    showToast('הדיוקן הועלה! 🖼️✨', 'gold');
+  } catch (e) { showToast('לא הצלחנו לקרוא את התמונה', 'bad'); }
+}
+async function clearAvatarImg() {
+  await Store.saveShared({avatarImg: null});
+  render();
+  showToast('חזרנו לדמות המצוירת 🎨');
 }
 async function sharedPhoto(inp, key) {
   if (!inp.files || !inp.files[0]) return;
