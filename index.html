@@ -275,7 +275,7 @@ h2{font-size:1.15em;font-weight:800;margin-bottom:10px}
      - מצב ענן (FireStore): Firebase Auth + Firestore, סנכרון חי
        בין המשתתפים. ראו SETUP-FIREBASE.md להקמה.
    ============================================================ */
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.4.0';
 
 /* ==== הגדרות Firebase ====
    אחרי הקמת הפרויקט (ראה SETUP-FIREBASE.md) מדביקים כאן את
@@ -1026,6 +1026,19 @@ const FireStore = {
 
   async signUp(email, pass) { await this.auth.createUserWithEmailAndPassword(email, pass); },
   async signIn(email, pass) { await this.auth.signInWithEmailAndPassword(email, pass); },
+  /* כניסה עם חשבון Google — חלון קופץ, ובנפילה (חסימת פופאפים / PWA באייפון)
+     מעבר אוטומטי לזרימת הפניה מלאה. */
+  async signInGoogle() {
+    const p = new firebase.auth.GoogleAuthProvider();
+    p.setCustomParameters({prompt: 'select_account'});
+    try { await this.auth.signInWithPopup(p); }
+    catch (e) {
+      const fb = ['auth/popup-blocked', 'auth/popup-closed-by-user', 'auth/cancelled-popup-request',
+        'auth/operation-not-supported-in-this-environment', 'auth/web-storage-unsupported', 'auth/internal-error'];
+      if (fb.includes(e.code)) await this.auth.signInWithRedirect(p);
+      else throw e;
+    }
+  },
   async signOut() { await this.auth.signOut(); location.reload(); },
 
   async createChallenge(f) {
@@ -1535,8 +1548,20 @@ function splashHTML(msg) {
 
 function authViewHTML() {
   const t = state.authTab;
-  return '<div class="splash" style="min-height:60vh;justify-content:flex-end"><div class="skull">💀</div>' +
+  return '<div class="splash" style="min-height:42vh;justify-content:flex-end"><div class="skull">💀</div>' +
     '<div class="biglogo">FIT or DIE!</div><div class="muted">אתגר הכושר הקבוצתי — או שמתאמנים, או ש... 😉</div></div>' +
+    // כניסה מהירה עם Google — בלי סיסמאות
+    '<div class="card"><button class="btn big" style="background:#fff;color:#1f1f1f;border:none;font-weight:800" ' +
+    (state.authBusy ? 'disabled' : '') + ' onclick="doGoogle()">' +
+    '<svg width="21" height="21" viewBox="0 0 48 48" style="vertical-align:-4px">' +
+    '<path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.8-6.8C35.6 2.4 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.1 17.7 9.5 24 9.5z"/>' +
+    '<path fill="#4285F4" d="M46.6 24.6c0-1.6-.1-3.1-.4-4.6H24v9.1h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7.1-10.2 7.1-17.6z"/>' +
+    '<path fill="#FBBC05" d="M10.5 28.7c-.5-1.4-.8-2.9-.8-4.7s.3-3.3.8-4.7l-7.9-6.1C1 16.5 0 20.1 0 24s1 7.5 2.6 10.8l7.9-6.1z"/>' +
+    '<path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.3 0-11.6-3.6-13.5-8.9l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>' +
+    '&nbsp;&nbsp;התחברות עם Google</button>' +
+    '<div class="tiny center" style="margin-top:8px">הכי מהיר — לחיצה אחת, בלי סיסמאות</div></div>' +
+    '<div class="row" style="gap:10px;margin:4px 0 10px"><span style="flex:1;height:1px;background:var(--line)"></span>' +
+    '<span class="tiny">או עם אימייל וסיסמה</span><span style="flex:1;height:1px;background:var(--line)"></span></div>' +
     '<div class="card"><div class="tabs">' +
     '<button class="' + (t==='login'?'on':'') + '" onclick="setAuthTab(\'login\')">התחברות</button>' +
     '<button class="' + (t==='signup'?'on':'') + '" onclick="setAuthTab(\'signup\')">הרשמה</button></div>' +
@@ -2392,6 +2417,17 @@ async function doAuth() {
       'auth/user-not-found':'לא קיים חשבון — נסו הרשמה', 'auth/email-already-in-use':'האימייל כבר רשום — נסו התחברות',
       'auth/invalid-email':'כתובת אימייל לא תקינה', 'auth/weak-password':'הסיסמה חלשה מדי'};
     showToast(msgs[e.code] || ('שגיאה: ' + e.message), 'bad');
+  }
+  state.authBusy = false; render();
+}
+async function doGoogle() {
+  state.authBusy = true; render();
+  try { await Store.signInGoogle(); }
+  catch (e) {
+    const msgs = {'auth/operation-not-allowed': 'כניסה עם Google לא מופעלת בפרויקט — יש להפעיל אותה בקונסולת Firebase',
+      'auth/unauthorized-domain': 'הדומיין הזה לא מאושר בפרויקט Firebase (Authentication → Settings → Authorized domains)',
+      'auth/network-request-failed': 'אין חיבור לאינטרנט'};
+    showToast(msgs[e.code] || ('שגיאה: ' + (e.code || e.message)), 'bad');
   }
   state.authBusy = false; render();
 }
