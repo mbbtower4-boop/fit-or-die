@@ -277,7 +277,7 @@ h2{font-size:1.15em;font-weight:800;margin-bottom:10px}
      - מצב ענן (FireStore): Firebase Auth + Firestore, סנכרון חי
        בין המשתתפים. ראו SETUP-FIREBASE.md להקמה.
    ============================================================ */
-const APP_VERSION = '1.7.0';
+const APP_VERSION = '1.8.0';
 
 /* ==== הגדרות Firebase ====
    אחרי הקמת הפרויקט (ראה SETUP-FIREBASE.md) מדביקים כאן את
@@ -395,11 +395,16 @@ const CLASSES = [
   {id:'beastmaster', n:'אדון החיות', e:'🐺', wp:'קשת ציידים', ar:'אדרת פרווה', prime:'con',
    ab:['קריאת הזאב','עקבות','חץ צייד','ברית החיה','שאגת הלהקה','זימון עדר','רוח הטורף','אדון הבר']},
 ];
+/* חיות מלוות — נפתחות לפי דרגת הבעלים; דרגת החיה עצמה עולה עד 10 */
+const PET_MAX_LEVEL = 10;
 const PETS = [
-  {id:'butterfly', n:'פרפר פיות', e:'🦋', lv:0}, {id:'wolf', n:'זאב', e:'🐺', lv:0},
-  {id:'owl', n:'ינשוף קסום', e:'🦉', lv:1},      {id:'horse', n:'סוס אציל', e:'🐴', lv:2},
-  {id:'griffin', n:'גריפון', e:'🦅', lv:3},      {id:'unicorn', n:'חד־קרן', e:'🦄', lv:4},
-  {id:'phoenix', n:'עוף החול', e:'🔥', lv:5},    {id:'dragon', n:'דרקון', e:'🐉', lv:6},
+  {id:'butterfly', n:'פרפר פיות', e:'🦋', lv:0}, {id:'wolf',    n:'זאב',        e:'🐺', lv:0},
+  {id:'fox',       n:'שועל',      e:'🦊', lv:1}, {id:'owl',     n:'ינשוף קסום', e:'🦉', lv:1},
+  {id:'raven',     n:'עורב',      e:'🐦', lv:2}, {id:'horse',   n:'סוס אציל',   e:'🐴', lv:2},
+  {id:'panther',   n:'פנתר',      e:'🐆', lv:3}, {id:'griffin', n:'גריפון',     e:'🦅', lv:3},
+  {id:'bear',      n:'דוב ענק',   e:'🐻', lv:4}, {id:'unicorn', n:'חד־קרן',     e:'🦄', lv:4},
+  {id:'drake',     n:'דרייק',     e:'🦎', lv:5}, {id:'phoenix', n:'עוף החול',   e:'🔥', lv:5},
+  {id:'tiger',     n:'נמר לבן',   e:'🐅', lv:6}, {id:'dragon',  n:'דרקון',      e:'🐉', lv:6},
 ];
 /* תכונות הדמות — נגזרות מנתוני הכושר האמיתיים (בסיס 8, מקסימום 20) */
 const STATS = [
@@ -471,7 +476,8 @@ function gearPlus(m, slotId) {
   }[slotId] || 0;
   return Math.min(9, v);
 }
-function petLevel(m) { return Math.max(1, levelIndex(m.xp || 0)); }
+/* דרגת החיה: 1..10, עולה עם נקודות הניסיון של הבעלים */
+function petLevel(m) { return Math.max(1, Math.min(PET_MAX_LEVEL, 1 + Math.floor((m.xp || 0) / 220))); }
 const MEMBER_COLORS = ['#ff5757','#ffb020','#3ddc84','#38b6ff','#b388ff','#ff7ab6','#2dd4bf','#f97316'];
 const REACTIONS = ['❤️','🔥','💪','👏','😂'];  // נשמרות לפי אינדקס: r0..r4
 const DAY_LETTERS = ['א','ב','ג','ד','ה','ו','ש'];
@@ -1270,10 +1276,10 @@ function heroVisual(m, size) {
     '<img src="' + m.avatarImg + '" alt="">' + (lv >= 7 ? '<span class="crown">👑</span>' : '') + '</span>';
 }
 /* הדמות והחיה שלה יחד — החיה בגודל ~45% צמודה לדמות */
-function heroDuo(m, size) {
+function heroDuo(m, size, petRatio) {
   const pet = petById(m.pet);
   if (!pet) return heroVisual(m, size);
-  const ps = Math.max(44, Math.round(size * 0.42)), lv = levelIndex(m.xp || 0);
+  const ps = Math.max(44, Math.round(size * (petRatio || 0.42))), lv = levelIndex(m.xp || 0);
   return '<span class="duo">' + heroVisual(m, size) +
     '<span class="petbadge" style="width:' + ps + 'px;height:' + ps + 'px">' +
     '<img src="avatars/' + pet.id + '-' + (1 + (lv % 3)) + '.jpg" alt="" onerror="imgFallback(this)">' +
@@ -1897,7 +1903,12 @@ function captainHTML() {
 /* ===== דף הדמות — גיליון RPG בסגנון דיאבלו ===== */
 /* דיוקן שלא נטען (למשל תמונה חסרה) — נפילה חיננית לאייקון האפליקציה */
 function imgFallback(el) { el.onerror = null; el.src = 'icons/icon-192.png'; el.style.opacity = '.5'; }
+/* דירוג נדירות בסגנון משחקי גאצ'ה — עולה עם הדרגה */
 function rarityOf(lv) { return lv >= 6 ? ['UR', '#ff7ab6'] : lv >= 4 ? ['SSR', '#ffd23f'] : lv >= 2 ? ['SR', '#38b6ff'] : ['R', '#aab3c8']; }
+function explainRarity() {
+  const lv = levelIndex((state.members[state.profileUid || state.me] || {}).xp || 0);
+  showToast('דירוג נדירות: R (רגיל) → SR (נדיר) → SSR (אגדי) → UR (אולטרה). כרגע: ' + rarityOf(lv)[0], 'gold');
+}
 function starsHTML(lv, size) {
   return '<span style="font-size:' + (size || 1.1) + 'em;letter-spacing:2.5px;color:#ffd23f;text-shadow:0 0 8px rgba(255,210,63,.55)">' +
     '✦'.repeat(lv + 1) + '<span style="opacity:.22;text-shadow:none">' + '✦'.repeat(7 - lv) + '</span></span>';
@@ -1913,10 +1924,10 @@ function sheetHTML() {
 
   // כותרת: דיוקן, מחלקה, דרגה, כוכבים
   h += '<div class="card center">' +
-    '<div class="herowrap">' + heroDuo(m, 150) + '</div>' +
+    '<div class="herowrap" style="margin:6px 0 10px">' + heroDuo(m, 250, 0.5) + '</div>' +
     '<div style="font-weight:900;font-size:1.35em;margin-top:6px">' + esc(m.name) + '</div>' +
     '<div class="row" style="justify-content:center;gap:7px;margin-top:6px;flex-wrap:wrap">' +
-    '<span class="chip" style="color:' + rar[1] + ';border:1.5px solid ' + rar[1] + ';font-weight:900;letter-spacing:1px">' + rar[0] + '</span>' +
+    '<button class="chip" style="color:' + rar[1] + ';border:1.5px solid ' + rar[1] + ';font-weight:900;letter-spacing:1px" onclick="explainRarity()">' + rar[0] + ' ⓘ</button>' +
     (cls ? '<span class="chip">' + cls.e + ' ' + cls.n + '</span>' : '') +
     '<span class="chip">' + LEVELS[lv].e + ' דרגה ' + (lv+1) + ' · ' + LEVELS[lv].n + '</span>' +
     '<span class="chip">💥 ' + (m.xp || 0).toLocaleString('en-US') + '</span></div>' +
@@ -1957,17 +1968,19 @@ function sheetHTML() {
 
   // חיית המלווה
   const plv = petLevel(m);
-  h += '<div class="card"><div class="row spread"><b>🐾 חיית המלווה</b><span class="tiny">גדלה איתך</span></div>' +
+  h += '<div class="card"><div class="row spread"><b>🐾 חיית המלווה</b><span class="tiny">גדלה איתך · עד דרגה ' + PET_MAX_LEVEL + '</span></div>' +
     '<div class="petcard" style="margin-top:9px">' +
-    '<img class="petimg" src="avatars/' + pet.id + '-' + (1 + (lv % 3)) + '.jpg" alt="" loading="lazy" onerror="imgFallback(this)">' +
-    '<div class="grow"><b style="font-size:1.1em">' + pet.e + ' ' + pet.n + '</b>' +
-    '<div class="tiny">דרגה ' + plv + ' · ' + (plv >= 6 ? 'אגדית 🌟' : plv >= 4 ? 'מיומנת' : plv >= 2 ? 'מתאמנת' : 'גור') + '</div>' +
-    '<div class="mbar" style="margin-top:6px"><i style="width:' + Math.round((lv + 1) / 8 * 100) + '%;background:linear-gradient(90deg,var(--ac),var(--ac2))"></i></div>' +
+    '<img class="petimg" src="avatars/' + pet.id + '-' + (1 + (lv % 3)) + '.jpg" alt="" onerror="imgFallback(this)">' +
+    '<div class="grow"><b style="font-size:1.15em">' + pet.e + ' ' + pet.n + '</b>' +
+    '<div class="tiny">דרגה ' + plv + '/' + PET_MAX_LEVEL + ' · ' + (plv >= 9 ? 'אגדית 🌟' : plv >= 6 ? 'מיומנת' : plv >= 3 ? 'מתאמנת' : 'גור') + '</div>' +
+    '<div class="mbar" style="margin-top:6px"><i style="width:' + Math.round(plv / PET_MAX_LEVEL * 100) + '%;background:linear-gradient(90deg,var(--ac),var(--ac2))"></i></div>' +
     '<div class="tiny" style="margin-top:4px">המראה שלה משתנה ככל שאתם עולים בדרגות</div></div></div>' +
     (mine ? '<div class="pgrid">' + PETS.map(p => {
       const locked = lv < p.lv;
       return '<button class="' + (m.pet === p.id ? 'sel' : '') + (locked ? ' lock' : '') + '" onclick="pickPet(\'' + p.id + '\',' + p.lv + ')">' +
-        '<img src="avatars/' + p.id + '-1.jpg" alt="" loading="lazy" onerror="imgFallback(this)">' + p.n + (locked ? ' 🔒ד\'' + (p.lv + 1) : '') + '</button>';
+        '<img src="avatars/' + p.id + '-1.jpg" alt="" onerror="imgFallback(this)">' + p.n +
+        (locked ? '<div class="tiny">🔒 דרגה ' + (p.lv + 1) + '</div>'
+                : '<div class="tiny" style="color:var(--ac)">דרגה ' + (m.pet === p.id ? plv : 1) + '/' + PET_MAX_LEVEL + '</div>') + '</button>';
     }).join('') + '</div>' : '') + '</div>';
 
   h += '<button class="btn" style="width:100%;margin-bottom:10px" onclick="openProfile(\'' + uid + '\')">📈 למעקב הנתונים והמדידות ←</button>';
