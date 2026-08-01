@@ -143,6 +143,8 @@ h2{font-size:1.15em;font-weight:800;margin-bottom:10px}
 .photoslot{aspect-ratio:3/4;border:1.5px dashed var(--line);border-radius:14px;display:flex;align-items:center;justify-content:center;
   color:var(--tx3);font-size:.8em;overflow:hidden;background:rgba(0,0,0,.2)}
 .photoslot img{width:100%;height:100%;object-fit:cover}
+.delx{position:absolute;top:-8px;inset-inline-end:-8px;width:28px;height:28px;border-radius:50%;background:var(--bad);
+  color:#fff;font-weight:900;font-size:.85em;line-height:1;box-shadow:0 3px 10px rgba(0,0,0,.5);z-index:3}
 
 /* ===== themes/colors pickers ===== */
 .themegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
@@ -275,7 +277,7 @@ h2{font-size:1.15em;font-weight:800;margin-bottom:10px}
      - מצב ענן (FireStore): Firebase Auth + Firestore, סנכרון חי
        בין המשתתפים. ראו SETUP-FIREBASE.md להקמה.
    ============================================================ */
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.5.0';
 
 /* ==== הגדרות Firebase ====
    אחרי הקמת הפרויקט (ראה SETUP-FIREBASE.md) מדביקים כאן את
@@ -376,7 +378,16 @@ function memberGear(m) {
   if (!(g.skin >= 0 && g.skin < SKIN_TONES.length)) g.skin = 1;
   return g;
 }
-const DEFAULT_DAILY_HABIT = 'לאכול מתחת ל-100 גרם פחמימות היום';
+/* אתגרים יומיים — כל אחד נמדד ומתוגמל בנפרד */
+const DEFAULT_DAILY_HABITS = ['לאכול מתחת ל-100 גרם פחמימות', 'לא לאכול אחרי 20:00'];
+const DEFAULT_DAILY_HABIT = DEFAULT_DAILY_HABITS[0];   // תאימות לאחור
+function challengeHabits() {
+  const ch = state.challenge || {};
+  if (Array.isArray(ch.dailyHabits)) return ch.dailyHabits.filter(x => x && x.trim());
+  return ch.dailyHabit ? [ch.dailyHabit] : [];
+}
+function habDays(ws, i) { return (ws.hab && ws.hab[i]) || (i === 0 ? (ws.habitDays || []) : []); }
+function habTotal(ws) { return challengeHabits().reduce((s, _, i) => s + habDays(ws, i).length, 0); }
 
 /* ===== מערכת מבוכים ודרקונים (v1.0) =====
    מחלקות D&D עם דיוקנאות AI (6 וריאציות לכל אחת), יכולות/לחשים שנפתחים
@@ -467,7 +478,7 @@ function heroTotals(m) {
     t.min += w.min || 0;
     t.days += (w.daysArr || []).length;
     t.sleep += w.sleep || 0;
-    t.habit += (w.habitDays || []).length;
+    t.habit += habTotal(w);
     if (w.goalBonus) t.goalWeeks++;
     if (w.sleepGoalBonus) t.sleepWeeks++;
     if (w.spreadBonus) t.spread++;
@@ -483,7 +494,7 @@ function heroStats(m) {
   const t = heroTotals(m), cap = v => STAT_MIN + Math.max(0, Math.min(STAT_MAX - STAT_MIN, Math.floor(v)));
   return {
     str: cap(t.min / 110), dex: cap(t.days / 3), con: cap(m.streakDays || 0),
-    int: cap(t.habit / 5), wis: cap(t.sleep / 35), cha: cap(t.social / 4),
+    int: cap(t.habit / 8), wis: cap(t.sleep / 35), cha: cap(t.social / 4),
   };
 }
 function gearPlus(m, slotId) {
@@ -615,7 +626,7 @@ function weekInfo(n) {
   };
 }
 /* ברירות המחדל של נתוני שבוע למשתתף — מקור אמת יחיד */
-const WS_DEFAULTS = () => ({min:0, daysArr:[], goalBonus:false, spreadBonus:false, bonusClaim:false, sleep:0, sleepLog:{}, sleepGoalBonus:false, habitDays:[], habitBonus:false});
+const WS_DEFAULTS = () => ({min:0, daysArr:[], goalBonus:false, spreadBonus:false, bonusClaim:false, sleep:0, sleepLog:{}, sleepGoalBonus:false, hab:{}, habBonus:{}});
 function memberWeek(m, n) { return (m.weekStats && m.weekStats[n]) || WS_DEFAULTS(); }
 function groupWeekMin(n) { return Object.values(state.members).reduce((s, m) => s + memberWeek(m, n).min, 0); }
 function groupWeekSleep(n) { return Math.round(Object.values(state.members).reduce((s, m) => s + (memberWeek(m, n).sleep || 0), 0) * 10) / 10; }
@@ -699,19 +710,22 @@ function applySleep(member, weekN, hoursRaw, day) {
 
 /* האתגר היומי (למשל: מתחת ל-100 גרם פחמימות) — סימון יום בוצע/בוטל.
    ‎+10 XP ליום, בונוס ‎+25 על שבוע מלא (7/7). ביטול מחזיר את הנקודות. */
-function applyHabit(member, weekN, day, on) {
+function applyHabit(member, weekN, day, on, idx) {
+  idx = idx || 0;
   const m = JSON.parse(JSON.stringify(member));
   m.badges = m.badges || []; m.weekStats = m.weekStats || {};
   const ws = m.weekStats[weekN] = Object.assign(WS_DEFAULTS(), m.weekStats[weekN]);
-  ws.habitDays = ws.habitDays || [];
-  const has = ws.habitDays.includes(day);
+  ws.hab = ws.hab || {}; ws.habBonus = ws.habBonus || {};
+  if (idx === 0 && !ws.hab[0] && ws.habitDays) ws.hab[0] = ws.habitDays.slice();   // מיגרציה מהמבנה הישן
+  const arr = ws.hab[idx] = (ws.hab[idx] || []);
+  const has = arr.includes(day);
   if (on === has) return {m, xp: 0, events: []};
   let dxp = 0; const events = [];
   if (on) {
-    ws.habitDays.push(day); dxp += 10;
-    if (ws.habitDays.length >= 7 && !ws.habitBonus) { ws.habitBonus = true; dxp += 25; events.push({t:'bonus', txt:'שבוע תזונה מושלם! +25'}); }
+    arr.push(day); dxp += 10;
+    if (arr.length >= 7 && !ws.habBonus[idx]) { ws.habBonus[idx] = true; dxp += 25; events.push({t:'bonus', txt:'שבוע מושלם באתגר היומי! +25'}); }
   } else {
-    ws.habitDays = ws.habitDays.filter(d => d !== day); dxp -= 10;
+    ws.hab[idx] = arr.filter(d => d !== day); dxp -= 10;
   }
   const lvBefore = levelIndex(m.xp || 0);
   m.xp = (m.xp || 0) + dxp;
@@ -733,7 +747,7 @@ function weekSummaryText(prev) {
   const totSleep = groupWeekSleep(prev), sGoal = SLEEP_WEEK_GOAL * cnt;
   let champ = null, cm = 0;
   Object.values(state.members).forEach(m => { const v = memberWeek(m, prev).min; if (v > cm) { cm = v; champ = m; } });
-  const totHabit = Object.values(state.members).reduce((s, m) => s + (memberWeek(m, prev).habitDays || []).length, 0);
+  const totHabit = Object.values(state.members).reduce((s, m) => s + habTotal(memberWeek(m, prev)), 0);
   return '📊 סיכום שבוע ' + (prev + 1) + ': ' + totMin + '/' + gGoal + ' דק\' אימון' + (totMin >= gGoal ? ' ✅' : '') +
     ' · ' + totSleep + '/' + sGoal + ' שע\' שינה' + (totSleep >= sGoal ? ' ✅' : '') +
     (totHabit > 0 ? ' · 🥦 ' + totHabit + ' ימי תזונה' : '') +
@@ -887,9 +901,9 @@ const DemoStore = {
     state.feed.push({id: uidGen(), type:'system', ts: Date.now(), text:'⚙️ הגדרות האתגר עודכנו ע"י ' + state.members[state.me].name, reactions:{}});
     this.save();
   },
-  async habit(on) {
+  async habit(on, idx) {
     const w = curWeek();
-    const res = applyHabit(state.members[state.me], w, dayKey(), on);
+    const res = applyHabit(state.members[state.me], w, dayKey(), on, idx || 0);
     state.members[state.me] = res.m;
     this.data.members = state.members;
     res.events.forEach(ev => {
@@ -940,7 +954,7 @@ const DemoStore = {
   seed() {
     const ch = {id:'main', name:'Fit or DIE! 💀🔥', code:'FIT1', startDate: dayKey(nextSunday()),
       weeksTotal: 12, defaultGoalMin: 150, organizerUid:'u1',
-      captainOrder:['u1','u2','u3','u4','u5','u6'], dailyHabit: DEFAULT_DAILY_HABIT, cheatUsed: 0};
+      captainOrder:['u1','u2','u3','u4','u5','u6'], dailyHabits: DEFAULT_DAILY_HABITS.slice(), cheatUsed: 0};
     const mk = (uid, name, emoji, color, avatar, pet, pic) => ({uid, name, emoji, color, avatar, pet,
       avatarImg: 'avatars/' + avatar + '-' + pic + '.jpg', joinedAt: Date.parse(ch.startDate),
       xp: 0, badges: [], streakDays: 0, lastActiveDay: null, weekStats: {}, measures: []});
@@ -1045,7 +1059,7 @@ const FireStore = {
     const ref = this.db.collection('challenges').doc();
     await ref.set({name: f.name, code: f.code.toUpperCase(), startDate: dayKey(sundayOf(new Date(Date.parse(f.start)))),
       weeksTotal: f.weeks, defaultGoalMin: f.goal, organizerUid: state.me, captainOrder: [],
-      dailyHabit: DEFAULT_DAILY_HABIT, createdAt: Date.now()});
+      dailyHabits: DEFAULT_DAILY_HABITS.slice(), dailyHabit: DEFAULT_DAILY_HABIT, createdAt: Date.now()});
     state.pendingJoin = {cid: ref.id, code: f.code.toUpperCase()};
     state.view = 'onboard'; render();
   },
@@ -1197,9 +1211,9 @@ const FireStore = {
     await this.chRef().update(patch);
     await this.chRef().collection('feed').add({type:'system', ts: Date.now(), text:'⚙️ הגדרות האתגר עודכנו ע"י ' + state.members[state.me].name, reactions:{}});
   },
-  async habit(on) {
+  async habit(on, idx) {
     const w = curWeek();
-    const res = applyHabit(state.members[state.me], w, dayKey(), on);
+    const res = applyHabit(state.members[state.me], w, dayKey(), on, idx || 0);
     const b = this.db.batch();
     b.update(this.chRef().collection('members').doc(state.me),
       {xp: res.m.xp, ['weekStats.' + w]: res.m.weekStats[w]});
@@ -1614,8 +1628,6 @@ function onboardHTML() {
   return topbarHTML() + '<h2>בניית כרטיס הגיבור שלך 🦸</h2>' +
     '<div class="card"><div class="field"><label>שם (כמו שהחברים יראו)</label><input id="obName" value="' + esc(d.name) + '" placeholder="השם שלך"></div>' +
     '<div class="field"><label>בחרו דמות</label>' + avatarPickerHTML(d, 0) + '</div>' +
-    '<div class="field"><label>סמל חזה</label><div class="emogrid">' +
-    HERO_EMOJIS.map(e => '<button class="' + (d.emoji===e?'sel':'') + '" onclick="obSet(\'emoji\',\'' + e + '\')">' + e + '</button>').join('') + '</div></div>' +
     '<div class="field"><label>צבע אישי</label><div class="colorrow">' +
     MEMBER_COLORS.map(c => '<button class="' + (d.color===c?'sel':'') + '" style="background:' + c + '" onclick="obSet(\'color\',\'' + c + '\')"></button>').join('') + '</div></div></div>' +
     '<div class="card"><div class="row spread"><b>נתוני פתיחה 🤝</b><span class="tiny">גלוי לחברי הקבוצה</span></div>' +
@@ -1780,14 +1792,19 @@ function homeHTML() {
     (wi.groupSleepBonusDone ? '<div class="chip" style="margin-top:8px;color:var(--ok)">😴 יעד השינה הקבוצתי הושג! +20 לכולם</div>' : '') + '</div>';
 
   // האתגר היומי (למשל: מתחת ל-100 גרם פחמימות)
-  if (ch.dailyHabit) {
-    const hd = ws.habitDays || [];
-    const todayDone = hd.includes(dayKey());
-    h += '<div class="card"><div class="row spread"><b>🥦 ' + (live ? 'אתגר יומי: תזונה' : 'תזונה') + '</b><span class="tiny">' + hd.length + '/7 ימים</span></div>' +
-      '<div class="muted" style="margin:6px 0 10px">' + esc(ch.dailyHabit) + '</div>' +
-      (!live ? '' : todayDone
-        ? '<div class="row"><span class="chip" style="color:var(--ok)">הושלם היום ✔ +10</span><button class="chip" onclick="doHabit(false)">ביטול</button></div>'
-        : '<button class="btn" style="width:100%" onclick="doHabit(true)">עמדתי בזה היום! +10 🥦</button>') + '</div>';
+  const habits = challengeHabits();
+  if (habits.length) {
+    h += '<div class="card"><div class="row spread"><b>🥦 ' + (live ? 'אתגרים יומיים' : 'אתגרים יומיים') + '</b>' +
+      '<span class="tiny">' + habTotal(ws) + '/' + (7 * habits.length) + ' ימים</span></div>' +
+      habits.map((txt, i) => {
+        const hd = habDays(ws, i), done = hd.includes(dayKey());
+        return '<div style="margin-top:' + (i ? 14 : 10) + 'px;padding-top:' + (i ? 12 : 0) + 'px;' + (i ? 'border-top:1px dashed rgba(255,255,255,.12)' : '') + '">' +
+          '<div class="row spread"><span style="font-weight:700">' + esc(txt) + '</span><span class="tiny">' + hd.length + '/7</span></div>' +
+          (!live ? '' : done
+            ? '<div class="row" style="margin-top:7px"><span class="chip" style="color:var(--ok)">בוצע היום ✔ +10</span><button class="chip" onclick="doHabit(false,' + i + ')">ביטול</button></div>'
+            : '<button class="btn" style="width:100%;margin-top:7px" onclick="doHabit(true,' + i + ')">עמדתי בזה היום! +10 ✅</button>') +
+          '</div>';
+      }).join('') + '</div>';
   }
 
   // משימת בונוס
@@ -1893,7 +1910,7 @@ function groupHTML() {
         '<div style="font-size:.72em;letter-spacing:1.5px;color:#ffd23f">' + '✦'.repeat(lv + 1) + '<span style="opacity:.25">' + '✦'.repeat(7 - lv) + '</span></div>' +
         '<div class="tiny">' + (kls ? kls.e + ' ' + kls.n + ' · ' : LEVELS[lv].e + ' ') + 'דרגה ' + (lv+1) + ' · 💥 ' + m.xp.toLocaleString('en-US') + (m.streakDays ? ' · 🔥 ' + m.streakDays : '') + '</div>' +
         '<div class="mbar"><i style="width:' + Math.min(100, (x.min / wi.goalMin) * 100) + '%;background:' + m.color + '"></i></div>' +
-        '<div class="tiny" style="margin-top:3px">💪 ' + x.min + ' / ' + wi.goalMin + ' דק\' · 😴 ' + (mw.sleep || 0) + ' / ' + SLEEP_WEEK_GOAL + ' שע\'' + (state.challenge.dailyHabit ? ' · 🥦 ' + (mw.habitDays || []).length + '/7' : '') + '</div></div></div></div>';
+        '<div class="tiny" style="margin-top:3px">💪 ' + x.min + ' / ' + wi.goalMin + ' דק\' · 😴 ' + (mw.sleep || 0) + ' / ' + SLEEP_WEEK_GOAL + ' שע\'' + (challengeHabits().length ? ' · 🥦 ' + habTotal(mw) + '/' + (7 * challengeHabits().length) : '') + '</div></div></div></div>';
     }).join('') +
     '<div class="card"><b>➕ הוספת חבר לקבוצה</b>' +
     '<div class="muted" style="margin:6px 0 8px">שולחים לחבר את הקישור לאפליקציה ואת קוד ההזמנה — הוא נרשם, מזין את הקוד, בונה דמות ומצטרף:</div>' +
@@ -1974,7 +1991,7 @@ function profileHTML() {
       '<span class="chip">💪 ' + hw.min + '/' + hwi.goalMin + ' דק\'' + (hw.goalBonus ? ' ✔' : '') + '</span>' +
       '<span class="chip">📅 ' + (hw.daysArr || []).length + ' ימים פעילים' + (hw.spreadBonus ? ' ✔' : '') + '</span>' +
       '<span class="chip">😴 ' + (hw.sleep || 0) + '/' + SLEEP_WEEK_GOAL + ' שע\'' + (hw.sleepGoalBonus ? ' ✔' : '') + '</span>' +
-      (state.challenge.dailyHabit ? '<span class="chip">🥦 ' + (hw.habitDays || []).length + '/7' + (hw.habitBonus ? ' ✔' : '') + '</span>' : '') + '</div>' +
+      (challengeHabits().length ? '<span class="chip">🥦 ' + habTotal(hw) + '/' + (7 * challengeHabits().length) + '</span>' : '') + '</div>' +
       '<div class="daydots" style="margin-top:10px">' + DAY_LETTERS.map((L, i) => {
         const dk2 = dayKey(new Date(hwStart + i * 864e5));
         return '<div class="daydot ' + ((hw.daysArr || []).includes(dk2) ? 'on' : '') + '"><i></i>' + L + '</div>';
@@ -1983,7 +2000,7 @@ function profileHTML() {
     const agg = selUnit.weeks.reduce((a, i) => {
       const x = memberWeek(m, i);
       a.min += x.min; a.days += (x.daysArr || []).length; a.sleep += x.sleep || 0;
-      a.habit += (x.habitDays || []).length; a.goals += x.goalBonus ? 1 : 0; a.goalSum += weekInfo(i).goalMin;
+      a.habit += habTotal(x); a.goals += x.goalBonus ? 1 : 0; a.goalSum += weekInfo(i).goalMin;
       return a;
     }, {min:0, days:0, sleep:0, habit:0, goals:0, goalSum:0});
     const n = selUnit.weeks.length;
@@ -1992,7 +2009,7 @@ function profileHTML() {
       '<span class="chip">💪 ' + agg.min + '/' + agg.goalSum + ' דק\'</span>' +
       '<span class="chip">📅 ' + agg.days + ' ימים פעילים</span>' +
       '<span class="chip">😴 ' + (Math.round(agg.sleep * 10) / 10) + '/' + (SLEEP_WEEK_GOAL * n) + ' שע\'</span>' +
-      (state.challenge.dailyHabit ? '<span class="chip">🥦 ' + agg.habit + '/' + (7 * n) + '</span>' : '') +
+      (challengeHabits().length ? '<span class="chip">🥦 ' + agg.habit + '/' + (7 * n * challengeHabits().length) + '</span>' : '') +
       '<span class="chip">🏆 ' + agg.goals + '/' + n + ' שבועות ביעד</span></div>';
   }
   h += '</div>';
@@ -2046,10 +2063,14 @@ function profileHTML() {
         : '') : '') + '</div>';
 
   h += '<div class="card"><div class="row spread"><b>📷 לפני ← אחרי</b><span class="tiny">🤝 משותף לקבוצה</span></div>' +
-    '<div class="row" style="gap:10px;margin-top:8px"><div class="grow"><div class="photoslot"' + (mine ? ' onclick="$(\'phStart\').click()"' : '') + '>' +
-    (m.photoStart ? '<img src="' + m.photoStart + '">' : (mine ? '📸 תמונת "לפני"' : '📸 אין עדיין')) + '</div><div class="tiny center" style="margin-top:4px">נקודת פתיחה</div></div>' +
-    '<div class="grow"><div class="photoslot"' + (mine ? ' onclick="$(\'phGoal\').click()"' : '') + '>' +
-    (m.photoGoal ? '<img src="' + m.photoGoal + '">' : (mine ? '🎯 תמונת השראה' : '🎯 אין עדיין')) + '</div><div class="tiny center" style="margin-top:4px">לאן שואפים</div></div></div>' +
+    '<div class="row" style="gap:10px;margin-top:8px">' +
+    ['photoStart', 'photoGoal'].map((k, i) => {
+      const has = m[k], lbl = i ? 'לאן שואפים' : 'נקודת פתיחה';
+      return '<div class="grow" style="position:relative"><div class="photoslot"' + (mine ? ' onclick="$(\'' + (i ? 'phGoal' : 'phStart') + '\').click()"' : '') + '>' +
+        (has ? '<img src="' + has + '">' : (mine ? (i ? '🎯 תמונת השראה' : '📸 תמונת "לפני"') : 'אין עדיין')) + '</div>' +
+        (mine && has ? '<button class="delx" onclick="event.stopPropagation();delPhoto(\'' + k + '\')" title="מחיקה">✕</button>' : '') +
+        '<div class="tiny center" style="margin-top:4px">' + lbl + '</div></div>';
+    }).join('') + '</div>' +
     (mine ? '<input id="phStart" type="file" accept="image/*" style="display:none" onchange="sharedPhoto(this,\'photoStart\')">' +
     '<input id="phGoal" type="file" accept="image/*" style="display:none" onchange="sharedPhoto(this,\'photoGoal\')">' : '') + '</div>';
   return h + navHTML();
@@ -2175,8 +2196,7 @@ function sheetHTML() {
         '<span class="nm" style="color:' + (locked ? '' : tier.c) + '">' + (locked ? sl.n : esc(nm)) + (locked || !plus ? '' : ' +' + plus) + '</span>' +
         '<div class="pl" style="color:' + tier.c + '">' + (locked ? 'נפתח בדרגה ' + (sl.lv + 1) : tier.n + ' · דרגת ציוד ' + tier.lvl + '/5') + '</div></span></div>';
     }).join('') + '</div>' +
-    '<div class="tiny" style="margin-top:9px">דרגות הציוד: ' + ITEM_TIERS.map(t => '<span style="color:' + t.c + '">' + t.n + '</span>').join(' → ') + '</div>' +
-    '<div class="tiny" style="margin-top:5px">כל פריט מתחזק בזכות משהו אחר: נשק ← ' + SLOTS[0].srcN + ' · שריון ← ' + SLOTS[1].srcN + ' · מגן ← ' + SLOTS[2].srcN + ' · קסדה ← ' + SLOTS[3].srcN + ' · מגפיים ← ' + SLOTS[4].srcN + ' · טבעת ← ' + SLOTS[5].srcN + ' · קמע ← ' + SLOTS[6].srcN + ' · גלימה ← ' + SLOTS[7].srcN + '</div></div>';
+    '</div>';
 
   // יכולות ולחשים
   if (cls) {
@@ -2267,7 +2287,6 @@ function settingsHTML() {
     h += '<div class="card"><b>✏️ עריכת הכרטיס שלי</b>' +
       '<div class="field" style="margin-top:8px"><label>שם</label><input id="setName" value="' + esc(d.name) + '"></div>' +
       '<div class="field"><label>דמות</label>' + avatarPickerHTML(d, me.xp) + '</div>' +
-      '<div class="field"><label>סמל חזה</label><div class="emogrid">' + HERO_EMOJIS.map(e => '<button class="' + (d.emoji===e?'sel':'') + '" onclick="obSet(\'emoji\',\'' + e + '\')">' + e + '</button>').join('') + '</div></div>' +
       '<div class="field"><label>צבע אישי</label><div class="colorrow">' + MEMBER_COLORS.map(c => '<button class="' + (d.color===c?'sel':'') + '" style="background:' + c + '" onclick="obSet(\'color\',\'' + c + '\')"></button>').join('') + '</div></div>' +
       '<button class="btn primary" onclick="doSaveProfile()">שמירה</button></div>';
     // מלתחה — פריטים נפתחים ככל שעולים בדרגות
@@ -2296,7 +2315,8 @@ function settingsHTML() {
     h += '<div class="card"><b>🏆 הגדרות האתגר (מארגן)</b>' +
       '<div class="field" style="margin-top:8px"><label>שם האתגר</label><input id="chEditName" value="' + esc(ch.name) + '"></div>' +
       '<div class="field"><label>יעד שבועי בסיסי לאדם (דק\')</label><input id="chEditGoal" type="number" min="' + GOAL_MIN_RANGE[0] + '" max="' + GOAL_MIN_RANGE[1] + '" step="10" value="' + ch.defaultGoalMin + '"></div>' +
-      '<div class="field"><label>האתגר היומי (השאירו ריק כדי לכבות)</label><input id="chEditHabit" value="' + esc(ch.dailyHabit || '') + '" placeholder="' + esc(DEFAULT_DAILY_HABIT) + '"></div>' +
+      '<div class="field"><label>אתגר יומי 1 (ריק = כבוי)</label><input id="chEditHabit" value="' + esc(challengeHabits()[0] || '') + '" placeholder="' + esc(DEFAULT_DAILY_HABITS[0]) + '"></div>' +
+      '<div class="field"><label>אתגר יומי 2 (ריק = כבוי)</label><input id="chEditHabit2" value="' + esc(challengeHabits()[1] || '') + '" placeholder="' + esc(DEFAULT_DAILY_HABITS[1]) + '"></div>' +
       '<div class="field"><label>משך האתגר (שבועות, עד 52 = שנה)</label><input id="chEditWeeks" type="number" min="2" max="52" value="' + ch.weeksTotal + '"></div>' +
       '<div class="field"><label>תאריך פתיחה (תחילת שבוע 1)</label><input id="chEditStart" type="date" value="' + ch.startDate + '">' +
       '<div class="tiny" style="margin-top:4px">שינוי התאריך מזיז את מספור השבועות של כל הקבוצה</div></div>' +
@@ -2496,7 +2516,9 @@ async function doSaveChallenge() {
   const weeks = Math.max(curWeek() + 1, Math.min(52, parseInt($('chEditWeeks').value) || state.challenge.weeksTotal));
   const sd = $('chEditStart') && $('chEditStart').value;
   if (!name) { showToast('חסר שם לאתגר', 'bad'); return; }
-  const patch = {name, defaultGoalMin: goal, dailyHabit: habit, weeksTotal: weeks};
+  const habit2 = ($('chEditHabit2') && $('chEditHabit2').value.trim()) || '';
+  const patch = {name, defaultGoalMin: goal, weeksTotal: weeks,
+    dailyHabits: [habit, habit2].filter(x => x), dailyHabit: habit};
   if (sd && !isNaN(Date.parse(sd))) patch.startDate = dayKey(sundayOf(new Date(Date.parse(sd))));
   try {
     await Store.saveChallenge(patch);
@@ -2504,9 +2526,9 @@ async function doSaveChallenge() {
     showToast('הגדרות האתגר נשמרו ✔', 'gold');
   } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
 }
-async function doHabit(on) {
+async function doHabit(on, idx) {
   try {
-    const res = await Store.habit(on);
+    const res = await Store.habit(on, idx || 0);
     render();
     if (res.xp > 0) xpPop(res.xp);
     celebrate(res.events);
@@ -2740,11 +2762,13 @@ async function pickClass(id) {
   syncEditInputs();
   // דיוקן אקראי מבין הווריאציות — כך שלא כולם מקבלים את אותה תמונה
   const img = 'avatars/' + id + '-' + (1 + Math.floor(Math.random() * portraitCount(id))) + '.jpg';
+  const emo = (classById(id) || {}).e || '🦸';       // הסמל נגזר מהמחלקה (אין יותר בורר סמל)
   state.editProfile.avatar = id;
   state.editProfile.avatarImg = img;
+  state.editProfile.emoji = emo;
   render();
   if (!state.members[state.me]) return;            // בהרשמה עדיין אין כרטיס — יישמר בסיום
-  try { await Store.saveShared({avatar: id, avatarImg: img}); render(); }
+  try { await Store.saveShared({avatar: id, avatarImg: img, emoji: emo}); render(); }
   catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
 }
 async function pickPet(id, lvReq) {
@@ -2769,6 +2793,12 @@ async function avatarImgUpload(inp) {
     render();
     showToast('הדיוקן הועלה! 🖼️✨', 'gold');
   } catch (e) { showToast('לא הצלחנו לקרוא את התמונה', 'bad'); }
+}
+async function delPhoto(key) {
+  if (!confirm('למחוק את התמונה?')) return;
+  const patch = {}; patch[key] = null;
+  try { await Store.saveShared(patch); render(); showToast('נמחק ✔'); }
+  catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
 }
 async function clearAvatarImg() {
   await Store.saveShared({avatarImg: null});
