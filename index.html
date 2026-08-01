@@ -238,7 +238,7 @@ h2{font-size:1.15em;font-weight:800;margin-bottom:10px}
      - מצב ענן (FireStore): Firebase Auth + Firestore, סנכרון חי
        בין המשתתפים. ראו SETUP-FIREBASE.md להקמה.
    ============================================================ */
-const APP_VERSION = '0.8.0';
+const APP_VERSION = '0.9.0';
 
 /* ==== הגדרות Firebase ====
    אחרי הקמת הפרויקט (ראה SETUP-FIREBASE.md) מדביקים כאן את
@@ -588,7 +588,7 @@ let Store = null;
 
 /* ---------- מצב הדגמה: localStorage ---------- */
 const DemoStore = {
-  LS: 'fitordie_demo_v4',
+  LS: 'fitordie_demo_v5',
   data: null,
   async boot() {
     state.mode = 'demo';
@@ -783,6 +783,11 @@ const DemoStore = {
       u1: mk('u1','דני','🦸‍♂️','#38b6ff','hero'),    u2: mk('u2','מאיה','🦹‍♀️','#ff7ab6','princess'),
       u3: mk('u3','רון','🥷','#3ddc84','robot'),     u4: mk('u4','שירה','🦸‍♀️','#ffb020','lion'),
     };
+    // דיוקנאות AI מוכנים מהגלריה
+    members.u1.avatarImg = 'avatars/hero-1.jpg';
+    members.u2.avatarImg = 'avatars/princess-1.jpg';
+    members.u3.avatarImg = 'avatars/robot-1.jpg';
+    members.u4.avatarImg = 'avatars/lion-1.jpg';
     const weeks = {2: {bonus:'אימון בחוץ בטבע 🌳',
       panel: {host:'u3', motif:'ערב שייקים ירוקים 🥤', when:'חמישי 20:00', location:''},
       brings: {u2:'סלט פירות', u4:'חטיפי אנרגיה ביתיים'}}};
@@ -1994,12 +1999,18 @@ function settingsHTML() {
       '<div class="herowrap" style="margin:8px 0">' + heroSVG(Object.assign({}, me, {avatar: d.avatar, color: d.color, emoji: d.emoji, gear: d.gear}), 108) + '</div>' +
       wardrobeHTML(d, gLv) +
       '<button class="btn primary" onclick="doSaveProfile()">שמירת המראה 🎽</button>' +
-      '<div class="field" style="margin-top:14px"><label>🖼️ דיוקן דמות משלך (למשל ציור AI)</label>' +
-      '<div class="row" style="gap:8px;flex-wrap:wrap">' +
-      '<button class="btn" onclick="$(\'avImgIn\').click()">' + (me.avatarImg ? 'החלפת הדיוקן' : 'העלאת תמונה') + '</button>' +
-      (me.avatarImg ? '<button class="btn danger" onclick="clearAvatarImg()">חזרה לדמות המצוירת</button>' : '') + '</div>' +
+      '<div class="field" style="margin-top:14px"><label>🖼️ דיוקן דמות (נוצר ב-AI)</label>' +
+      '<div class="tiny" style="margin-bottom:6px">שלוש גרסאות מוכנות ל"' + esc((AVATARS.find(a => a.id === d.avatar) || {n:''}).n) + '" — הקישו לבחירה. מחליפים דמות למעלה כדי לראות דיוקנאות של דמויות אחרות:</div>' +
+      '<div class="row" style="gap:8px">' + [1, 2, 3].map(v => {
+        const p = 'avatars/' + d.avatar + '-' + v + '.jpg';
+        return '<img src="' + p + '" alt="" loading="lazy" onclick="pickPortrait(\'' + p + '\')" ' +
+          'style="width:31%;aspect-ratio:1;object-fit:cover;border-radius:12px;cursor:pointer;border:3px solid ' + (me.avatarImg === p ? 'var(--ac)' : 'rgba(255,255,255,.15)') + '">';
+      }).join('') + '</div>' +
+      '<div class="row" style="gap:8px;flex-wrap:wrap;margin-top:9px">' +
+      '<button class="btn" onclick="$(\'avImgIn\').click()">📤 העלאת דיוקן משלי</button>' +
+      (me.avatarImg ? '<button class="btn" onclick="clearAvatarImg()">🎨 חזרה לדמות המצוירת</button>' : '') + '</div>' +
       '<input id="avImgIn" type="file" accept="image/*" style="display:none" onchange="avatarImgUpload(this)">' +
-      '<div class="tiny" style="margin-top:5px">יוצרים דיוקן בכלי AI (או כל ציור/תמונה), מעלים — והוא יוצג בכרטיס ובקבוצה בתוך מסגרת לפי הנדירות שלך. תמונה מרובעת עובדת הכי טוב.</div></div></div>';
+      '<div class="tiny" style="margin-top:5px">הדיוקן מוצג בכרטיס ובקבוצה בתוך מסגרת לפי הנדירות שלך. אפשר גם להעלות ציור משלכם — תמונה מרובעת עובדת הכי טוב.</div></div></div>';
   }
   // הגדרות האתגר — למארגן בלבד
   const ch = state.challenge;
@@ -2389,6 +2400,13 @@ async function doSetWeightsInline() {
     await Store.saveShared(patch);
     render();
     showToast('עודכן ✔', 'gold');
+  } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
+}
+async function pickPortrait(path) {
+  try {
+    await Store.saveShared({avatarImg: path});
+    render();
+    showToast('הדיוקן נבחר! 🖼️✨', 'gold');
   } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
 }
 async function avatarImgUpload(inp) {
