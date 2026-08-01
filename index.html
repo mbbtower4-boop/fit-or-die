@@ -208,6 +208,35 @@ h2{font-size:1.15em;font-weight:800;margin-bottom:10px}
 .heroimg img{width:100%;height:100%;object-fit:cover;border-radius:14px;display:block}
 .heroimg .crown{position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:1.3em}
 
+/* ===== דף הדמות (RPG) ===== */
+.statrow{display:flex;align-items:center;gap:8px;margin-top:7px}
+.statrow b{width:74px;font-size:.86em;font-weight:700}
+.statrow .val{width:26px;text-align:center;font-weight:900;font-size:1.02em;color:var(--ac)}
+.statbar{flex:1;height:9px;border-radius:999px;background:rgba(0,0,0,.32);overflow:hidden}
+.statbar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--ac),var(--ac2))}
+.gearg{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:9px}
+.gitem{display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.26);border:1.5px solid var(--line);border-radius:13px;padding:8px 9px}
+.gitem .ic{width:34px;height:34px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:1.2em;border-radius:9px;background:rgba(255,255,255,.07);border:1px solid var(--line)}
+.gitem .nm{font-size:.78em;font-weight:700;line-height:1.25}
+.gitem .pl{font-size:.72em;font-weight:900}
+.gitem.locked{opacity:.4}
+.abil{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px dashed rgba(255,255,255,.08);font-size:.87em}
+.abil:last-child{border-bottom:none}
+.abil .lvtag{margin-inline-start:auto;font-size:.72em;color:var(--tx3)}
+.abil.on{color:var(--tx)}
+.abil.off{opacity:.45}
+.petcard{display:flex;align-items:center;gap:12px}
+.petimg{width:86px;height:86px;flex:0 0 auto;border-radius:16px;border:3px solid var(--ac);object-fit:cover;background:rgba(0,0,0,.25)}
+.pgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:9px}
+.pgrid button{background:var(--card2);border:2px solid transparent;border-radius:12px;padding:5px 2px 4px;font-size:.68em;font-weight:700}
+.pgrid button img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block;margin-bottom:2px}
+.pgrid button.sel{border-color:var(--ac);background:rgba(255,210,63,.13)}
+.pgrid button.lock{opacity:.4}
+.clsgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0}
+.clsgrid button{background:var(--card2);border:2.5px solid transparent;border-radius:14px;padding:0 0 5px;font-size:.72em;font-weight:700;overflow:hidden}
+.clsgrid button img{width:100%;aspect-ratio:1;object-fit:cover;display:block;margin-bottom:3px}
+.clsgrid button.sel{border-color:var(--ac);box-shadow:0 0 12px rgba(255,210,63,.35)}
+
 /* ===== התאמה למסך מחשב (v0.5) =====
    מסכי הכרטיסים נפרסים לשתי עמודות; הצ'אט נשאר עמודה קריאה. */
 @media (min-width: 900px) {
@@ -238,7 +267,7 @@ h2{font-size:1.15em;font-weight:800;margin-bottom:10px}
      - מצב ענן (FireStore): Firebase Auth + Firestore, סנכרון חי
        בין המשתתפים. ראו SETUP-FIREBASE.md להקמה.
    ============================================================ */
-const APP_VERSION = '0.9.0';
+const APP_VERSION = '1.1.0';
 
 /* ==== הגדרות Firebase ====
    אחרי הקמת הפרויקט (ראה SETUP-FIREBASE.md) מדביקים כאן את
@@ -333,6 +362,107 @@ function memberGear(m) {
   return g;
 }
 const DEFAULT_DAILY_HABIT = 'לאכול מתחת ל-100 גרם פחמימות היום';
+
+/* ===== מערכת מבוכים ודרקונים (v1.0) =====
+   מחלקות D&D עם דיוקנאות AI (6 וריאציות לכל אחת), יכולות/לחשים שנפתחים
+   לפי דרגה, ציוד שמשתדרג (+N) לפי הישגי כושר אמיתיים, וחיית מלווה. */
+const CLASSES = [
+  {id:'fighter', n:'לוחם', e:'⚔️', wp:'חרב ארוכה', ar:'שריון פלטה', prime:'str',
+   ab:['מכת חרב','הגנה איתנה','מתקפה כפולה','זעם קרב','מגן חי','סערת להבים','מכת מוות','אלוף הזירה']},
+  {id:'rogue', n:'גנב', e:'🗡️', wp:'פגיון תאומים', ar:'שריון עור', prime:'dex',
+   ab:['דקירה מגב','צעדים שקטים','פריצת מנעולים','התחמקות','מכת רעל','צל כפול','מכה קטלנית','מלך הצללים']},
+  {id:'wizard', n:'קוסם', e:'🔮', wp:'מטה ארקאני', ar:'גלימת קוסם', prime:'int',
+   ab:['טילי קסם','מגן ארקאני','כדור אש','ריחוף','ברק משורשר','שיגור ממדים','סופת מטאורים','אדון הקסם']},
+  {id:'cleric', n:'כהן', e:'✨', wp:'שרביט קדוש', ar:'שריון קשקשים', prime:'wis',
+   ab:['ריפוי קל','ברכה','גירוש אל־מתים','שריון אמונה','ריפוי המונים','עמוד אור','תחיית המתים','קדוש עליון']},
+  {id:'paladin', n:'פלדין', e:'🛡️', wp:'חרב האור', ar:'שריון זהב', prime:'str',
+   ab:['מכה קדושה','הילת הגנה','ריפוי ידיים','זיהוי רשע','חומת אמונה','להב השמש','ברכת המלאכים','אלוף הצדק']},
+  {id:'deathknight', n:'אביר מוות', e:'💀', wp:'להב הקבר', ar:'שריון עצמות', prime:'con',
+   ab:['מכת כפור','אחיזת המוות','מגן עצמות','זימון שלד','הילת אימה','קציר נשמות','צבא המתים','אדון הקבר']},
+  {id:'ranger', n:'סייר אלף', e:'🏹', wp:'קשת האלפים', ar:'אדרת יער', prime:'dex',
+   ab:['ירי מדויק','עקיבה','קשר עם הטבע','ירי כפול','חץ רעל','ירי מרובה','חץ הסופה','עין הנץ']},
+  {id:'barbarian', n:'ברברי', e:'🪓', wp:'גרזן ענק', ar:'שריון פרווה', prime:'str',
+   ab:['זעם','עור ברזל','מכת גרזן','שאגת קרב','זעם ברסרק','מכה מרסקת','עור דרקון','אלוף השבט']},
+  {id:'druid', n:'דרואיד', e:'🌿', wp:'מטה השורש', ar:'שריון קליפה', prime:'wis',
+   ab:['מגע הטבע','שיחה עם חיות','שריון קליפה','גלגול לדוב','זימון שורשים','סופת ברקים','גלגול לדרקון','שומר היער']},
+  {id:'bard', n:'בארד', e:'🎵', wp:'נבל קסום', ar:'אפוד משי', prime:'cha',
+   ab:['שיר עידוד','לחש שינה','נגינה מרפאה','לעג מפחיד','המנון גבורה','שיר הסערה','בלדת הניצחון','אגדה חיה']},
+  {id:'warlock', n:'מכשף', e:'🕯️', wp:'מטה הגולגולת', ar:'גלימת אופל', prime:'int',
+   ab:['מגע צל','קללה','זימון שד','יניקת חיים','ענן רעל','שער לגיהינום','קללת המוות','אדון האופל']},
+  {id:'dwarf', n:'גמד לוחם', e:'🔨', wp:'פטיש רעם', ar:'שריון מיתרי', prime:'con',
+   ab:['מכת פטיש','עור סלע','זעם הגמדים','מגן מבצר','מכת רעש','שריון הרים','פטיש הברקים','מלך ההרים']},
+];
+const PETS = [
+  {id:'butterfly', n:'פרפר פיות', e:'🦋', lv:0}, {id:'wolf', n:'זאב', e:'🐺', lv:0},
+  {id:'owl', n:'ינשוף קסום', e:'🦉', lv:1},      {id:'horse', n:'סוס אציל', e:'🐴', lv:2},
+  {id:'griffin', n:'גריפון', e:'🦅', lv:3},      {id:'unicorn', n:'חד־קרן', e:'🦄', lv:4},
+  {id:'phoenix', n:'עוף החול', e:'🔥', lv:5},    {id:'dragon', n:'דרקון', e:'🐉', lv:6},
+];
+/* תכונות הדמות — נגזרות מנתוני הכושר האמיתיים (בסיס 8, מקסימום 20) */
+const STATS = [
+  {id:'str', n:'כוח',     e:'💪', src:'דקות אימון'},
+  {id:'dex', n:'זריזות',  e:'🏃', src:'ימים פעילים'},
+  {id:'con', n:'חוסן',    e:'🛡️', src:'רצף ימים'},
+  {id:'int', n:'תבונה',   e:'📖', src:'ימי תזונה'},
+  {id:'wis', n:'חוכמה',   e:'🌙', src:'שעות שינה'},
+  {id:'cha', n:'כריזמה',  e:'✨', src:'פעילות חברתית'},
+];
+/* משבצות ציוד — כל אחת משתדרגת (+N) לפי הישג כושר אחר */
+const SLOTS = [
+  {id:'weapon', n:'נשק',    e:'⚔️', lv:0, srcN:'שבוע שעמדת ביעד האימונים'},
+  {id:'armor',  n:'שריון',  e:'🥋', lv:1, srcN:'שבוע שהקבוצה עמדה ביעד'},
+  {id:'shield', n:'מגן',    e:'🛡️', lv:2, srcN:'3 ימי רצף'},
+  {id:'helm',   n:'קסדה',   e:'⛑️', lv:3, srcN:'שבוע שעמדת ביעד השינה'},
+  {id:'boots',  n:'מגפיים', e:'👢', lv:4, srcN:'7 ימים פעילים'},
+  {id:'ring',   n:'טבעת',   e:'💍', lv:5, srcN:'7 ימי תזונה'},
+  {id:'amulet', n:'קמע',    e:'📿', lv:6, srcN:'תג שנצבר'},
+  {id:'cloak',  n:'גלימה',  e:'🧥', lv:7, srcN:'2 דרגות'},
+];
+const SLOT_NAMES = {shield:'מגן מבצר', helm:'קסדת קרב', boots:'מגפי ריצה', ring:'טבעת כוח', amulet:'קמע הגיבורים', cloak:'גלימת אלופים'};
+const ITEM_TIERS = [
+  {min:0, n:'רגיל',   c:'#aab3c8'}, {min:1, n:'נדיר',  c:'#38b6ff'},
+  {min:3, n:'אגדי',   c:'#b388ff'}, {min:5, n:'אלוהי', c:'#ffd23f'},
+];
+function itemTier(plus) { let t = ITEM_TIERS[0]; ITEM_TIERS.forEach(x => { if (plus >= x.min) t = x; }); return t; }
+function classById(id) { return CLASSES.find(c => c.id === id); }
+function petById(id) { return PETS.find(p => p.id === id); }
+/* כמה וריאציות דיוקן קיימות לדמות (D&D = 6, קלאסי = 3) */
+function portraitCount(id) { return classById(id) ? 6 : 3; }
+
+/* צבירות של משתתף על פני כל השבועות — הבסיס לתכונות ולציוד */
+function heroTotals(m) {
+  const t = {min:0, days:0, sleep:0, habit:0, goalWeeks:0, sleepWeeks:0, spread:0};
+  Object.values(m.weekStats || {}).forEach(w => {
+    t.min += w.min || 0;
+    t.days += (w.daysArr || []).length;
+    t.sleep += w.sleep || 0;
+    t.habit += (w.habitDays || []).length;
+    if (w.goalBonus) t.goalWeeks++;
+    if (w.sleepGoalBonus) t.sleepWeeks++;
+    if (w.spreadBonus) t.spread++;
+  });
+  t.social = state.feed.filter(f => f.uid === m.uid && f.type === 'msg').length +
+    state.feed.reduce((s, f) => s + (f.uid === m.uid ? Object.values(f.reactions || {}).reduce((a, r) => a + (r || []).length, 0) : 0), 0);
+  t.groupWeeks = Object.values(state.weeks || {}).filter(w => w.groupBonusDone).length;
+  return t;
+}
+function heroStats(m) {
+  const t = heroTotals(m), cap = v => 8 + Math.max(0, Math.min(12, Math.floor(v)));
+  return {
+    str: cap(t.min / 150), dex: cap(t.days / 3), con: cap(m.streakDays || 0),
+    int: cap(t.habit / 4), wis: cap(t.sleep / 49), cha: cap(t.social / 4),
+  };
+}
+function gearPlus(m, slotId) {
+  const t = heroTotals(m), lv = levelIndex(m.xp || 0);
+  const v = {
+    weapon: t.goalWeeks, armor: t.groupWeeks, shield: Math.floor((m.streakDays || 0) / 3),
+    helm: t.sleepWeeks, boots: Math.floor(t.days / 7), ring: Math.floor(t.habit / 7),
+    amulet: (m.badges || []).length, cloak: Math.floor(lv / 2),
+  }[slotId] || 0;
+  return Math.min(9, v);
+}
+function petLevel(m) { return Math.max(1, levelIndex(m.xp || 0)); }
 const MEMBER_COLORS = ['#ff5757','#ffb020','#3ddc84','#38b6ff','#b388ff','#ff7ab6','#2dd4bf','#f97316'];
 const REACTIONS = ['❤️','🔥','💪','👏','😂'];  // נשמרות לפי אינדקס: r0..r4
 const DAY_LETTERS = ['א','ב','ג','ד','ה','ו','ש'];
@@ -353,6 +483,8 @@ function dayKey(d) { d = d || new Date(); const p = n => String(n).padStart(2,'0
 function daysBetween(a, b) { return Math.round((Date.parse(b) - Date.parse(a)) / 864e5); }
 function addDaysKey(dk, n) { return new Date(Date.parse(dk) + n * 864e5).toISOString().slice(0, 10); }
 function sundayOf(d) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - x.getDay()); return x; }
+/* יום ראשון הקרוב (היום, אם היום ראשון) — ברירת המחדל לפתיחת אתגר */
+function nextSunday() { const t = new Date(); const x = new Date(t.getFullYear(), t.getMonth(), t.getDate()); if (x.getDay() !== 0) x.setDate(x.getDate() + (7 - x.getDay())); return x; }
 function fmtTime(ts) { return new Date(ts).toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'}); }
 function fmtDate(ts) {
   const d = new Date(ts), today = dayKey(), k = dayKey(d);
@@ -588,7 +720,7 @@ let Store = null;
 
 /* ---------- מצב הדגמה: localStorage ---------- */
 const DemoStore = {
-  LS: 'fitordie_demo_v5',
+  LS: 'fitordie_demo_v6',
   data: null,
   async boot() {
     state.mode = 'demo';
@@ -780,14 +912,12 @@ const DemoStore = {
     const mk = (uid, name, emoji, color, avatar) => ({uid, name, emoji, color, avatar, joinedAt: Date.parse(ch.startDate),
       xp:0, badges:[], streakDays:0, lastActiveDay:null, weekStats:{}, measures:[]});
     const members = {
-      u1: mk('u1','דני','🦸‍♂️','#38b6ff','hero'),    u2: mk('u2','מאיה','🦹‍♀️','#ff7ab6','princess'),
-      u3: mk('u3','רון','🥷','#3ddc84','robot'),     u4: mk('u4','שירה','🦸‍♀️','#ffb020','lion'),
+      u1: mk('u1','דני','🦸‍♂️','#38b6ff','fighter'), u2: mk('u2','מאיה','🦹‍♀️','#ff7ab6','cleric'),
+      u3: mk('u3','רון','🥷','#3ddc84','rogue'),     u4: mk('u4','שירה','🦸‍♀️','#ffb020','ranger'),
     };
-    // דיוקנאות AI מוכנים מהגלריה
-    members.u1.avatarImg = 'avatars/hero-1.jpg';
-    members.u2.avatarImg = 'avatars/princess-1.jpg';
-    members.u3.avatarImg = 'avatars/robot-1.jpg';
-    members.u4.avatarImg = 'avatars/lion-1.jpg';
+    // דיוקנאות AI וחיות מלוות
+    [['u1','fighter','wolf'], ['u2','cleric','butterfly'], ['u3','rogue','owl'], ['u4','ranger','horse']]
+      .forEach(([u, cl, pt]) => { members[u].avatarImg = 'avatars/' + cl + '-1.jpg'; members[u].pet = pt; });
     const weeks = {2: {bonus:'אימון בחוץ בטבע 🌳',
       panel: {host:'u3', motif:'ערב שייקים ירוקים 🥤', when:'חמישי 20:00', location:''},
       brings: {u2:'סלט פירות', u4:'חטיפי אנרגיה ביתיים'}}};
@@ -939,7 +1069,7 @@ const FireStore = {
 
   async createChallenge(f) {
     const ref = this.db.collection('challenges').doc();
-    await ref.set({name: f.name, code: f.code.toUpperCase(), startDate: dayKey(sundayOf(new Date())),
+    await ref.set({name: f.name, code: f.code.toUpperCase(), startDate: dayKey(sundayOf(new Date(Date.parse(f.start)))),
       weeksTotal: f.weeks, defaultGoalMin: f.goal, organizerUid: state.me, captainOrder: [],
       dailyHabit: DEFAULT_DAILY_HABIT, createdAt: Date.now()});
     state.pendingJoin = {cid: ref.id, code: f.code.toUpperCase()};
@@ -956,7 +1086,8 @@ const FireStore = {
     const {cid, code} = state.pendingJoin;
     const mRef = this.db.collection('challenges').doc(cid).collection('members').doc(state.me);
     // המשקל והתמונות משותפים לחברי האתגר — יושבים ישירות על כרטיס המשתתף
-    await mRef.set(Object.assign({name: profile.name, emoji: profile.emoji, color: profile.color, avatar: profile.avatar || 'hero', joinCode: code,
+    await mRef.set(Object.assign({name: profile.name, emoji: profile.emoji, color: profile.color, avatar: profile.avatar || 'fighter',
+      avatarImg: profile.avatarImg || null, pet: profile.pet || 'butterfly', joinCode: code,
       joinedAt: Date.now(), xp: 0, badges: [], streakDays: 0, lastActiveDay: null, weekStats: {}, measures: []}, extraData || {}));
     await this.db.collection('challenges').doc(cid).update({captainOrder: this.FV.arrayUnion(state.me)});
     await this.db.doc('users/' + state.me).set({cid});
@@ -1144,9 +1275,22 @@ const FireStore = {
 };
 
 /* ===================== ערכת נושא ===================== */
+/* ערכת הנושא בפועל: ברירת מחדל = של השבוע (בחירת הקפטן), אבל כל אחד
+   יכול לבחור לעצמו מראה קבוע במכשיר שלו (מההגדרות). */
+function myTheme() {
+  let pick = null;
+  try { pick = localStorage.getItem('fitordie_theme'); } catch (e) {}
+  if (pick && THEMES.some(t => t.id === pick)) return pick;
+  return state.challenge ? weekInfo(curWeek()).theme : THEMES[0].id;
+}
+function setMyTheme(id) {
+  try { if (id) localStorage.setItem('fitordie_theme', id); else localStorage.removeItem('fitordie_theme'); } catch (e) {}
+  applyTheme(); render();
+  showToast(id ? '🎨 המראה עודכן' : '🎨 חוזרים למראה של השבוע', 'gold');
+}
 function applyTheme() {
   if (!state.challenge) return;
-  const t = themeById(weekInfo(curWeek()).theme);
+  const t = themeById(myTheme());
   const r = document.documentElement.style;
   r.setProperty('--bg1', t.bg1); r.setProperty('--bg2', t.bg2);
   r.setProperty('--ac', t.ac); r.setProperty('--ac2', t.ac2);
@@ -1400,10 +1544,10 @@ function feedUnread() {
   return state.feed.some(f => f.ts > (state.seenTs || 0) && f.uid !== state.me);
 }
 function navHTML() {
-  const items = [['home','🏠','בית'], ['feed','💬','פיד'], null, ['panel','🥗','פאנל'], ['group','👥','קבוצה'], ['profile','🦸','אני']];
+  const items = [['home','🏠','בית'], ['feed','💬','פיד'], null, ['panel','🥗','פאנל'], ['group','👥','קבוצה'], ['sheet','📜','דמות']];
   return '<nav class="bnav">' + items.map(it => {
     if (!it) return '<button class="fab" onclick="nav(\'checkin\')">＋</button>';
-    const on = state.view === it[0] || (it[0] === 'profile' && state.view === 'profile' && state.profileUid === state.me);
+    const on = state.view === it[0] || (it[0] === 'sheet' && state.view === 'profile');
     const dot = it[0] === 'feed' && state.view !== 'feed' && feedUnread() ? '<span class="navdot"></span>' : '';
     return '<button class="' + (on ? 'on' : '') + '" onclick="nav(\'' + it[0] + '\')">' + dot + it[1] + '<span>' + it[2] + '</span></button>';
   }).join('') + '</nav>';
@@ -1441,16 +1585,22 @@ function joinViewHTML() {
         '<div class="field"><label>קוד הזמנה (תמציאו קוד קצר לחברים)</label><input id="chCode" style="text-transform:uppercase" maxlength="8" placeholder="ABC12"></div>' +
         '<div class="row"><div class="field grow"><label>משך (שבועות)</label><input id="chWeeks" type="number" value="12" min="2" max="52"></div>' +
         '<div class="field grow"><label>יעד שבועי לאדם (דק\')</label><input id="chGoal" type="number" value="150" min="' + GOAL_MIN_RANGE[0] + '" max="' + GOAL_MIN_RANGE[1] + '" step="10"></div></div>' +
-        '<div class="tiny" style="margin-bottom:10px">האתגר מתחיל ביום ראשון של השבוע הנוכחי. היעד חל על כולם באופן אחיד.</div>' +
+        '<div class="field"><label>תאריך פתיחה (יום ראשון — תחילת שבוע 1)</label><input id="chStart" type="date" value="' + dayKey(nextSunday()) + '"></div>' +
+        '<div class="tiny" style="margin-bottom:10px">שבוע 1 מתחיל בתאריך הזה, וכל שבוע (ראשון–שבת) מקדם את המונה ב-1. היעד חל על כולם באופן אחיד.</div>' +
         '<button class="btn primary big" onclick="doCreate()">יוצאים לדרך! 🚀</button>') +
     '</div>' +
     '<button class="btn" style="width:100%" onclick="Store.signOut()">יציאה מהחשבון</button>';
 }
 
 function avatarPickerHTML(d, xp) {
-  return '<div class="avgrid">' + AVATARS.map(a =>
-    '<button class="' + ((d.avatar || 'hero') === a.id ? 'sel' : '') + '" onclick="obSet(\'avatar\',\'' + a.id + '\')">' +
-    heroSVG({avatar: a.id, color: d.color, emoji: d.emoji, xp: xp || 0, gear: d.gear}, 44) + a.n + '</button>').join('') + '</div>';
+  return '<div class="tiny" style="margin-bottom:4px">⚔️ מבוכים ודרקונים — כל מחלקה עם יכולות/לחשים משלה:</div>' +
+    '<div class="clsgrid">' + CLASSES.map(c =>
+      '<button class="' + (d.avatar === c.id ? 'sel' : '') + '" onclick="pickClass(\'' + c.id + '\')">' +
+      '<img src="avatars/' + c.id + '-1.jpg" alt="" loading="lazy" onerror="imgFallback(this)">' + c.e + ' ' + c.n + '</button>').join('') + '</div>' +
+    '<div class="tiny" style="margin:10px 0 4px">🦸 דמויות קלאסיות (מצוירות):</div>' +
+    '<div class="avgrid">' + AVATARS.map(a =>
+      '<button class="' + (d.avatar === a.id ? 'sel' : '') + '" onclick="pickClass(\'' + a.id + '\')">' +
+      heroSVG({avatar: a.id, color: d.color, emoji: d.emoji, xp: xp || 0, gear: d.gear}, 44) + a.n + '</button>').join('') + '</div>';
 }
 /* מלתחה: בחירת אביזר/גלימה/תלבושת/גוון עור, עם נעילות לפי דרגה */
 function wardrobeHTML(d, lv) {
@@ -1491,26 +1641,40 @@ function pickUserHTML() {
 }
 
 function homeHTML() {
-  const w = curWeek(), wi = weekInfo(w), ch = state.challenge;
+  const cw = curWeek(), ch = state.challenge;
+  // אפשר לדפדף לשבועות קודמים של הקבוצה ולראות את הנתונים שלהם
+  const w = (state.homeWeek == null || state.homeWeek > cw) ? cw : Math.max(0, state.homeWeek);
+  const live = w === cw;
+  const wi = weekInfo(w);
   const me = state.members[state.me];
   const ws = memberWeek(me, w);
   const cap = state.members[wi.captainUid];
   const groupGoal = wi.goalMin * Object.keys(state.members).length;
   const gMin = groupWeekMin(w);
   const dl = daysLeftInWeek();
+  const notStarted = dayKey() < ch.startDate;      // האתגר עוד לא נפתח
   const today = new Date().getDay();
   const weekStartTs = Date.parse(ch.startDate) + w * 7 * 864e5;
+  const weekDates = new Date(weekStartTs).toLocaleDateString('he-IL', {day:'numeric', month:'numeric'}) + '–' +
+    new Date(weekStartTs + 6 * 864e5).toLocaleDateString('he-IL', {day:'numeric', month:'numeric'});
   let h = topbarHTML();
 
-  // כרטיס שבוע
-  h += '<div class="card weekcard"><div class="row spread"><b>שבוע ' + (w+1) + '/' + ch.weeksTotal + ' · ' + esc(ch.name) + '</b>' +
+  // כרטיס שבוע + ניווט בין שבועות
+  h += '<div class="card weekcard"><div class="row spread">' +
+    '<button class="chip" ' + (w > 0 ? 'onclick="homeWeek(' + (w-1) + ')"' : 'style="opacity:.25"') + '>▶ הקודם</button>' +
+    '<b>שבוע ' + (w+1) + '/' + ch.weeksTotal + '</b>' +
+    '<button class="chip" ' + (w < cw ? 'onclick="homeWeek(' + (w+1) + ')"' : 'style="opacity:.25"') + '>הבא ◀</button></div>' +
+    '<div class="row spread" style="margin-top:6px"><span class="tiny">' + esc(ch.name) + ' · ' + weekDates + '</span>' +
     '<span class="chip">🎨 ' + themeById(wi.theme).n + '</span></div>' +
     (wi.title ? '<div style="margin-top:6px;font-weight:800;color:var(--ac)">🎯 ' + esc(wi.title) + '</div>' : '') +
-    '<div class="row spread" style="margin-top:7px"><span class="row" style="gap:6px">' + (cap ? avatarHTML(cap,1) + '<span class="muted">קפטן השבוע: <b style="color:var(--tx)">' + esc(cap.name) + '</b></span>' : '') + '</span>' +
-    '<span class="chip">' + (dl <= 1 ? '⏰ היום האחרון!' : '⏳ עוד ' + dl + ' ימים') + '</span></div>' +
+    '<div class="row spread" style="margin-top:7px"><span class="row" style="gap:6px">' + (cap ? avatarHTML(cap,1) + '<span class="muted">קפטן: <b style="color:var(--tx)">' + esc(cap.name) + '</b></span>' : '') + '</span>' +
+    '<span class="chip">' + (!live ? '📅 שבוע שהסתיים'
+      : notStarted ? '🚀 מתחילים בעוד ' + daysBetween(dayKey(), ch.startDate) + ' ימים'
+      : dl <= 1 ? '⏰ היום האחרון!' : '⏳ עוד ' + dl + ' ימים') + '</span></div>' +
+    (live ? '' : '<button class="btn" style="width:100%;margin-top:9px" onclick="homeWeek(null)">חזרה לשבוע הנוכחי ←</button>') +
     '</div>';
 
-  if (wi.captainUid === state.me)
+  if (live && wi.captainUid === state.me)
     h += '<button class="captainbtn" onclick="nav(\'captain\')">⚡ זה השבוע שלך, קפטן! ניהול השבוע ←</button>';
 
   // הפאנל השבועי — מפורסם במסך הבית
@@ -1534,7 +1698,7 @@ function homeHTML() {
 
   // מד פאנל ה-CHEAT — התקדמות לפי נקודות הניסיון של כל הקבוצה
   const gxp = groupXpTotal(), intoCheat = gxp % CHEAT_XP_STEP;
-  h += '<div class="card"><div class="row spread"><b>🍕 מד פאנל ה-CHEAT</b><span class="tiny">' + gxp + ' XP קבוצתי</span></div>' +
+  if (live) h += '<div class="card"><div class="row spread"><b>🍕 מד פאנל ה-CHEAT</b><span class="tiny">' + gxp + ' XP קבוצתי</span></div>' +
     '<div class="mbar" style="margin-top:8px;height:12px"><i style="width:' + Math.round(intoCheat / CHEAT_XP_STEP * 100) + '%;background:linear-gradient(90deg,var(--ac),var(--ac2))"></i></div>' +
     '<div class="tiny" style="margin-top:5px">' + (cheatPend
       ? 'פאנל CHEAT ממתין לכם! אחרי שחגגתם — סמנו בלשונית הפאנל 🍕'
@@ -1545,18 +1709,18 @@ function homeHTML() {
   h += '<div class="card"><div class="row" style="justify-content:space-around">' +
     ringHTML(pct, 150, 13, 'var(--ac)', '<b>' + ws.min + '</b><div class="tiny">מתוך ' + wi.goalMin + ' דק\'</div>' + (pct >= 1 ? '<div style="font-size:1.2em">🏆</div>' : '')) +
     '<div style="flex:1;max-width:180px">' +
-      '<div class="muted">היעד שלי השבוע</div><div style="font-weight:900;font-size:1.3em">' + Math.min(100, Math.round(pct*100)) + '%</div>' +
-      '<div class="muted" style="margin-top:8px">רצף ימים</div><div style="font-weight:900;font-size:1.3em">🔥 ' + (me.streakDays || 0) + '</div>' +
-      '<div class="tiny" style="margin-top:3px">🛡️ ' + ((!me.shieldReadyAt || dayKey() >= me.shieldReadyAt) ? 'מגן רצף מוכן' : 'מגן ייטען בעוד ' + daysBetween(dayKey(), me.shieldReadyAt) + ' ימים') + '</div>' +
+      '<div class="muted">' + (live ? 'היעד שלי השבוע' : 'היעד שלי באותו שבוע') + '</div><div style="font-weight:900;font-size:1.3em">' + Math.min(100, Math.round(pct*100)) + '%</div>' +
+      (live ? '<div class="muted" style="margin-top:8px">רצף ימים</div><div style="font-weight:900;font-size:1.3em">🔥 ' + (me.streakDays || 0) + '</div>' +
+        '<div class="tiny" style="margin-top:3px">🛡️ ' + ((!me.shieldReadyAt || dayKey() >= me.shieldReadyAt) ? 'מגן רצף מוכן' : 'מגן ייטען בעוד ' + daysBetween(dayKey(), me.shieldReadyAt) + ' ימים') + '</div>' : '') +
     '</div></div>' +
     '<div class="daydots">' + DAY_LETTERS.map((L, i) => {
       const dk = dayKey(new Date(weekStartTs + i * 864e5));
       const on = ws.daysArr && ws.daysArr.includes(dk);
       const planned = (ws.planDays || []).includes(dk);
       const cls = on ? 'on' : planned ? (dk < dayKey() ? 'miss' : 'plan') : '';
-      return '<div class="daydot ' + cls + ' ' + (i===today?'today':'') + '" onclick="togglePlanDay(\'' + dk + '\')"><i></i>' + L + '</div>';
+      return '<div class="daydot ' + cls + ' ' + (live && i===today?'today':'') + '"' + (live ? ' onclick="togglePlanDay(\'' + dk + '\')"' : '') + '><i></i>' + L + '</div>';
     }).join('') + '</div>' +
-    '<div class="tiny" style="margin-top:7px">💡 הקישו על יום עתידי כדי לתכנן בו אימון — תכנון מראש מוכח מחקרית כמכפיל ביצוע</div></div>';
+    (live ? '<div class="tiny" style="margin-top:7px">💡 הקישו על יום עתידי כדי לתכנן בו אימון — תכנון מראש מוכח מחקרית כמכפיל ביצוע</div>' : '') + '</div>';
 
   // מד קבוצתי — כל משתתף בצבע שלו
   h += '<div class="card"><div class="row spread"><b>🤝 היעד הקבוצתי</b><span class="muted">' + gMin + ' / ' + groupGoal + ' דק\'</span></div>' +
@@ -1570,13 +1734,13 @@ function homeHTML() {
   const mySleep = ws.sleep || 0, gSleep = groupWeekSleep(w);
   const sleepGroupGoal = SLEEP_WEEK_GOAL * Object.keys(state.members).length;
   const todaySleep = (ws.sleepLog || {})[dayKey()];
-  h += '<div class="card"><div class="row spread"><b>😴 אתגר יומי: שינה</b>' +
-    (todaySleep
+  h += '<div class="card"><div class="row spread"><b>😴 ' + (live ? 'אתגר יומי: שינה' : 'שינה') + '</b>' +
+    (!live ? '' : todaySleep
       ? '<span class="chip" style="color:var(--ok)">הלילה: ' + todaySleep.h + ' שע\'' + (todaySleep.xp ? ' +' + todaySleep.xp + ' XP' : '') + ' ✔</span>'
       : '<button class="btn" onclick="doSleep()">+ דיווח שינה</button>') + '</div>' +
-    (todaySleep ? '<div class="row" style="margin-top:6px"><button class="chip" onclick="doSleep()">עדכון הדיווח</button></div>' : '') +
+    (live && todaySleep ? '<div class="row" style="margin-top:6px"><button class="chip" onclick="doSleep()">עדכון הדיווח</button></div>' : '') +
     // הלילות שלי השבוע — מעקב אישי יומי
-    '<div class="tiny" style="margin-top:9px">הלילות שלי השבוע:</div>' +
+    '<div class="tiny" style="margin-top:9px">' + (live ? 'הלילות שלי השבוע:' : 'הלילות שלי באותו שבוע:') + '</div>' +
     '<div class="row" style="gap:4px;margin-top:4px">' + DAY_LETTERS.map((L, i) => {
       const dk2 = dayKey(new Date(weekStartTs + i * 864e5));
       const e = (ws.sleepLog || {})[dk2];
@@ -1584,20 +1748,20 @@ function homeHTML() {
       return '<div style="flex:1;text-align:center"><div class="tiny">' + L + '</div>' +
         '<div class="chip" style="width:100%;justify-content:center;padding:3px 0;border:1px solid var(--line);' + stl + '">' + (e ? e.h : '·') + '</div></div>';
     }).join('') + '</div>' +
-    '<div class="row spread" style="margin-top:9px"><span class="muted">אני השבוע</span><span class="tiny">' + mySleep + ' / ' + SLEEP_WEEK_GOAL + ' שע\' · 56 = מושלם</span></div>' +
+    '<div class="row spread" style="margin-top:9px"><span class="muted">אני</span><span class="tiny">' + mySleep + ' / ' + SLEEP_WEEK_GOAL + ' שע\' · 56 = מושלם</span></div>' +
     '<div class="mbar"><i style="width:' + Math.min(100, (mySleep / SLEEP_WEEK_GOAL) * 100) + '%;background:var(--ac)"></i></div>' +
-    '<div class="row spread" style="margin-top:7px"><span class="muted">הקבוצה השבוע</span><span class="tiny">' + gSleep + ' / ' + sleepGroupGoal + ' שע\'</span></div>' +
+    '<div class="row spread" style="margin-top:7px"><span class="muted">הקבוצה</span><span class="tiny">' + gSleep + ' / ' + sleepGroupGoal + ' שע\'</span></div>' +
     '<div class="mbar"><i style="width:' + Math.min(100, (gSleep / sleepGroupGoal) * 100) + '%;background:#b388ff"></i></div>' +
-    '<div class="tiny" style="margin-top:6px">7 שע\' ומעלה בלילה = XP · 8 = מקסימום (יותר מזה לא נספר)</div>' +
+    (live ? '<div class="tiny" style="margin-top:6px">7 שע\' ומעלה בלילה = XP · 8 = מקסימום (יותר מזה לא נספר)</div>' : '') +
     (wi.groupSleepBonusDone ? '<div class="chip" style="margin-top:8px;color:var(--ok)">😴 יעד השינה הקבוצתי הושג! +20 לכולם</div>' : '') + '</div>';
 
   // האתגר היומי (למשל: מתחת ל-100 גרם פחמימות)
   if (ch.dailyHabit) {
     const hd = ws.habitDays || [];
     const todayDone = hd.includes(dayKey());
-    h += '<div class="card"><div class="row spread"><b>🥦 אתגר יומי: תזונה</b><span class="tiny">' + hd.length + '/7 ימים השבוע</span></div>' +
+    h += '<div class="card"><div class="row spread"><b>🥦 ' + (live ? 'אתגר יומי: תזונה' : 'תזונה') + '</b><span class="tiny">' + hd.length + '/7 ימים</span></div>' +
       '<div class="muted" style="margin:6px 0 10px">' + esc(ch.dailyHabit) + '</div>' +
-      (todayDone
+      (!live ? '' : todayDone
         ? '<div class="row"><span class="chip" style="color:var(--ok)">הושלם היום ✔ +10</span><button class="chip" onclick="doHabit(false)">ביטול</button></div>'
         : '<button class="btn" style="width:100%" onclick="doHabit(true)">עמדתי בזה היום! +10 🥦</button>') + '</div>';
   }
@@ -1606,13 +1770,14 @@ function homeHTML() {
   if (wi.bonus) {
     const claimed = ws.bonusClaim;
     h += '<div class="card"><div class="row spread"><div><b>🎯 משימת הבונוס של השבוע</b><div class="muted" style="margin-top:3px">' + esc(wi.bonus) + '</div></div>' +
-      (claimed ? '<span class="chip" style="color:var(--ok)">✔ בוצע</span>' : '<button class="btn" onclick="doClaimBonus()">עשיתי! +20</button>') + '</div></div>';
+      (claimed ? '<span class="chip" style="color:var(--ok)">✔ בוצע</span>'
+        : live ? '<button class="btn" onclick="doClaimBonus()">עשיתי! +20</button>' : '<span class="chip" style="opacity:.6">לא בוצע</span>') + '</div></div>';
   }
 
-  h += '<button class="btn primary big" onclick="nav(\'checkin\')" style="margin-bottom:12px">💪 דיווח אימון</button>';
+  if (live) h += '<button class="btn primary big" onclick="nav(\'checkin\')" style="margin-bottom:12px">💪 דיווח אימון</button>';
 
   // תקציר פיד
-  const last = state.feed.slice(-3);
+  const last = live ? state.feed.slice(-3) : [];
   if (last.length) {
     h += '<div class="card"><div class="row spread" style="margin-bottom:8px"><b>💬 קורה עכשיו</b>' +
       '<button class="chip" onclick="nav(\'feed\')">לפיד המלא ←</button></div>' +
@@ -1698,10 +1863,11 @@ function groupHTML() {
   return topbarHTML() + '<h2>הקבוצה 👥 <span class="muted" style="font-weight:400;font-size:.7em">שבוע ' + (w+1) + '</span></h2>' +
     arr.map((x, i) => {
       const m = x.m, lv = levelIndex(m.xp), mw = memberWeek(m, w);
-      return '<div class="card" onclick="openProfile(\'' + m.uid + '\')"><div class="mcard">' + heroVisual(m, 76) +
+      const kls = classById(m.avatar);
+      return '<div class="card" onclick="state.profileUid=\'' + m.uid + '\';state.view=\'sheet\';render()"><div class="mcard">' + heroVisual(m, 76) +
         '<div class="grow"><div class="row spread"><b style="font-size:1.1em">' + esc(m.name) + (m.uid === wi.captainUid ? ' ⚡' : '') + '</b><span class="medal">' + (medals[i] || '') + '</span></div>' +
         '<div style="font-size:.72em;letter-spacing:1.5px;color:#ffd23f">' + '✦'.repeat(lv + 1) + '<span style="opacity:.25">' + '✦'.repeat(7 - lv) + '</span></div>' +
-        '<div class="tiny">' + LEVELS[lv].e + ' ' + LEVELS[lv].n + ' · 💥 ' + m.xp.toLocaleString('en-US') + (m.streakDays ? ' · 🔥 ' + m.streakDays : '') + '</div>' +
+        '<div class="tiny">' + (kls ? kls.e + ' ' + kls.n + ' · ' : LEVELS[lv].e + ' ') + 'דרגה ' + (lv+1) + ' · 💥 ' + m.xp.toLocaleString('en-US') + (m.streakDays ? ' · 🔥 ' + m.streakDays : '') + '</div>' +
         '<div class="mbar"><i style="width:' + Math.min(100, (x.min / wi.goalMin) * 100) + '%;background:' + m.color + '"></i></div>' +
         '<div class="tiny" style="margin-top:3px">💪 ' + x.min + ' / ' + wi.goalMin + ' דק\' · 😴 ' + (mw.sleep || 0) + ' / ' + SLEEP_WEEK_GOAL + ' שע\'' + (state.challenge.dailyHabit ? ' · 🥦 ' + (mw.habitDays || []).length + '/7' : '') + '</div></div></div></div>';
     }).join('') +
@@ -1738,7 +1904,8 @@ function profileHTML() {
     '<span class="chip">💪 ' + (mw.min || 0) + ' דק\' השבוע</span><span class="chip">😴 ' + (mw.sleep || 0) + ' שע\' השבוע</span>' +
     (m.streakDays ? '<span class="chip">🔥 רצף ' + m.streakDays + '</span>' : '') + '</div>' +
     (next ? '<div class="tiny" style="margin-top:6px">בדרגה הבאה: כוכב נוסף ✦' + (lv >= 6 ? ', כתר 👑' : lv >= 5 ? ', כוכבים סביב הדמות' : lv >= 4 ? ', ברקים ⚡' : lv >= 3 ? ', הילה זוהרת ✨' : lv >= 2 ? ', גלימה בלתחה 🦸' : lv >= 1 ? ', כתפיות זהב' : ', חגורת זהב') + ' ופריטי מלתחה חדשים!</div>' : '') +
-    (mine ? '<button class="btn" style="margin-top:10px" onclick="nav(\'settings\')">🎽 מלתחה ועריכת הדמות</button>' : '') +
+    '<button class="btn primary" style="width:100%;margin-top:10px" onclick="state.profileUid=\'' + uid + '\';state.view=\'sheet\';render()">📜 דף הדמות — תכונות, ציוד וחיה</button>' +
+    (mine ? '<button class="btn" style="width:100%;margin-top:8px" onclick="nav(\'settings\')">🎽 מלתחה ועריכת הדמות</button>' : '') +
     '</div>';
 
   // תגים
@@ -1933,6 +2100,87 @@ function captainHTML() {
     '<button class="btn primary big" onclick="doWeekPlan()">פרסום לקבוצה 📣</button>' + navHTML();
 }
 
+/* ===== דף הדמות — גיליון RPG בסגנון דיאבלו ===== */
+/* דיוקן שלא נטען (למשל תמונה חסרה) — נפילה חיננית לאייקון האפליקציה */
+function imgFallback(el) { el.onerror = null; el.src = 'icons/icon-192.png'; el.style.opacity = '.5'; }
+function rarityOf(lv) { return lv >= 6 ? ['UR', '#ff7ab6'] : lv >= 4 ? ['SSR', '#ffd23f'] : lv >= 2 ? ['SR', '#38b6ff'] : ['R', '#aab3c8']; }
+function starsHTML(lv, size) {
+  return '<span style="font-size:' + (size || 1.1) + 'em;letter-spacing:2.5px;color:#ffd23f;text-shadow:0 0 8px rgba(255,210,63,.55)">' +
+    '✦'.repeat(lv + 1) + '<span style="opacity:.22;text-shadow:none">' + '✦'.repeat(7 - lv) + '</span></span>';
+}
+function sheetHTML() {
+  const uid = state.profileUid || state.me, m = state.members[uid];
+  if (!m) return topbarHTML() + '<div class="card">לא נמצא</div>' + navHTML();
+  const mine = uid === state.me;
+  const lv = levelIndex(m.xp || 0), cls = classById(m.avatar), rar = rarityOf(lv);
+  const stats = heroStats(m), t = heroTotals(m);
+  const pet = petById(m.pet) || PETS[0];
+  let h = topbarHTML() + '<h2>📜 דף הדמות</h2>';
+
+  // כותרת: דיוקן, מחלקה, דרגה, כוכבים
+  h += '<div class="card center">' +
+    '<div class="herowrap">' + heroVisual(m, 150) + '</div>' +
+    '<div style="font-weight:900;font-size:1.35em;margin-top:6px">' + esc(m.name) + '</div>' +
+    '<div class="row" style="justify-content:center;gap:7px;margin-top:6px;flex-wrap:wrap">' +
+    '<span class="chip" style="color:' + rar[1] + ';border:1.5px solid ' + rar[1] + ';font-weight:900;letter-spacing:1px">' + rar[0] + '</span>' +
+    (cls ? '<span class="chip">' + cls.e + ' ' + cls.n + '</span>' : '') +
+    '<span class="chip">' + LEVELS[lv].e + ' דרגה ' + (lv+1) + ' · ' + LEVELS[lv].n + '</span>' +
+    '<span class="chip">💥 ' + (m.xp || 0).toLocaleString('en-US') + '</span></div>' +
+    '<div style="margin-top:6px">' + starsHTML(lv) + '</div></div>';
+
+  // תכונות — נגזרות מנתוני הכושר האמיתיים
+  h += '<div class="card"><div class="row spread"><b>📊 תכונות</b><span class="tiny">נגזרות מהביצועים שלך</span></div>' +
+    STATS.map(s => {
+      const v = stats[s.id], isPrime = cls && cls.prime === s.id;
+      return '<div class="statrow"><b>' + s.e + ' ' + s.n + (isPrime ? ' ★' : '') + '</b>' +
+        '<span class="val">' + v + '</span><span class="statbar"><i style="width:' + Math.round((v - 8) / 12 * 100) + '%"></i></span>' +
+        '<span class="tiny" style="width:78px;text-align:start">' + s.src + '</span></div>';
+    }).join('') +
+    (cls ? '<div class="tiny" style="margin-top:8px">★ התכונה הראשית של ' + cls.n + '</div>' : '') + '</div>';
+
+  // ציוד — משתדרג לפי הישגים אמיתיים
+  h += '<div class="card"><div class="row spread"><b>🎒 ציוד</b><span class="tiny">משתדרג עם ההישגים</span></div>' +
+    '<div class="gearg">' + SLOTS.map(sl => {
+      const locked = lv < sl.lv;
+      const plus = locked ? 0 : gearPlus(m, sl.id);
+      const tier = itemTier(plus);
+      const nm = sl.id === 'weapon' ? (cls ? cls.wp : 'נשק הגיבור')
+        : sl.id === 'armor' ? (cls ? cls.ar : 'שריון הגיבור') : SLOT_NAMES[sl.id];
+      return '<div class="gitem ' + (locked ? 'locked' : '') + '" style="' + (!locked && plus > 0 ? 'border-color:' + tier.c : '') + '">' +
+        '<span class="ic">' + (locked ? '🔒' : sl.e) + '</span><span>' +
+        '<span class="nm" style="color:' + (locked ? '' : tier.c) + '">' + (locked ? sl.n : esc(nm)) + '</span>' +
+        '<div class="pl" style="color:' + tier.c + '">' + (locked ? 'ד\'' + (sl.lv + 1) : (plus > 0 ? '+' + plus + ' · ' + tier.n : tier.n)) + '</div></span></div>';
+    }).join('') + '</div>' +
+    '<div class="tiny" style="margin-top:9px">כל פריט מתחזק בזכות משהו אחר: נשק ← ' + SLOTS[0].srcN + ' · שריון ← ' + SLOTS[1].srcN + ' · מגן ← ' + SLOTS[2].srcN + ' · קסדה ← ' + SLOTS[3].srcN + ' · מגפיים ← ' + SLOTS[4].srcN + ' · טבעת ← ' + SLOTS[5].srcN + ' · קמע ← ' + SLOTS[6].srcN + ' · גלימה ← ' + SLOTS[7].srcN + '</div></div>';
+
+  // יכולות ולחשים
+  if (cls) {
+    h += '<div class="card"><div class="row spread"><b>' + (['wizard','cleric','druid','warlock','bard'].includes(cls.id) ? '📜 לחשים' : '⚡ יכולות') + '</b>' +
+      '<span class="tiny">' + (lv + 1) + '/8 נפתחו</span></div>' +
+      cls.ab.map((a, i) => '<div class="abil ' + (i <= lv ? 'on' : 'off') + '">' + (i <= lv ? '✔' : '🔒') + ' ' + esc(a) +
+        '<span class="lvtag">' + (i <= lv ? 'זמין' : 'דרגה ' + (i + 1)) + '</span></div>').join('') + '</div>';
+  }
+
+  // חיית המלווה
+  const plv = petLevel(m);
+  h += '<div class="card"><div class="row spread"><b>🐾 חיית המלווה</b><span class="tiny">גדלה איתך</span></div>' +
+    '<div class="petcard" style="margin-top:9px">' +
+    '<img class="petimg" src="avatars/' + pet.id + '-' + (1 + (lv % 3)) + '.jpg" alt="" loading="lazy" onerror="imgFallback(this)">' +
+    '<div class="grow"><b style="font-size:1.1em">' + pet.e + ' ' + pet.n + '</b>' +
+    '<div class="tiny">דרגה ' + plv + ' · ' + (plv >= 6 ? 'אגדית 🌟' : plv >= 4 ? 'מיומנת' : plv >= 2 ? 'מתאמנת' : 'גור') + '</div>' +
+    '<div class="mbar" style="margin-top:6px"><i style="width:' + Math.round((lv + 1) / 8 * 100) + '%;background:linear-gradient(90deg,var(--ac),var(--ac2))"></i></div>' +
+    '<div class="tiny" style="margin-top:4px">המראה שלה משתנה ככל שאתם עולים בדרגות</div></div></div>' +
+    (mine ? '<div class="pgrid">' + PETS.map(p => {
+      const locked = lv < p.lv;
+      return '<button class="' + (m.pet === p.id ? 'sel' : '') + (locked ? ' lock' : '') + '" onclick="pickPet(\'' + p.id + '\',' + p.lv + ')">' +
+        '<img src="avatars/' + p.id + '-1.jpg" alt="" loading="lazy" onerror="imgFallback(this)">' + p.n + (locked ? ' 🔒ד\'' + (p.lv + 1) : '') + '</button>';
+    }).join('') + '</div>' : '') + '</div>';
+
+  h += '<button class="btn" style="width:100%;margin-bottom:10px" onclick="openProfile(\'' + uid + '\')">📈 למעקב הנתונים והמדידות ←</button>';
+  if (mine) h += '<button class="btn" style="width:100%" onclick="nav(\'settings\')">🎽 שינוי מחלקה, דיוקן ומראה</button>';
+  return h + navHTML();
+}
+
 /* הפאנל השבועי — המפגש הפיזי של הקבוצה: אצל מי, מה המוטיב, ומי מביא מה */
 function panelHTML() {
   const w = curWeek(), wi = weekInfo(w);
@@ -1965,9 +2213,13 @@ function panelHTML() {
           : '<div class="grow"><b>' + esc(m.name) + '</b> — ' + (val ? esc(val) : '<span class="tiny">עוד לא נרשם</span>') + '</div>') +
         '</div>';
     }).join('') + '</div>';
-  // עריכה פתוחה לכל חברי הקבוצה (קבוצה קטנה על בסיס אמון)
-  h += '<button class="btn" style="width:100%;margin-bottom:12px" onclick="state.panelEdit=!state.panelEdit;state.panelDraft=null;render()">✏️ ' + (panel ? 'עריכת פרטי הפאנל' : 'קביעת הפאנל השבועי') + '</button>';
-  if (state.panelEdit) {
+  // קביעת הפאנל — סמכות של קפטן השבוע (והמארגן כגיבוי)
+  const canEditPanel = wi.captainUid === state.me || state.challenge.organizerUid === state.me;
+  if (canEditPanel)
+    h += '<button class="btn" style="width:100%;margin-bottom:12px" onclick="state.panelEdit=!state.panelEdit;state.panelDraft=null;render()">✏️ ' + (panel ? 'עריכת פרטי הפאנל' : 'קביעת הפאנל השבועי') + '</button>';
+  else
+    h += '<div class="tiny center" style="margin-bottom:12px">⚡ רק קפטן השבוע (' + esc((state.members[wi.captainUid] || {name:'?'}).name) + ') קובע את פרטי הפאנל — אבל כל אחד רושם מה הוא מביא 👇</div>';
+  if (state.panelEdit && canEditPanel) {
     const d = state.panelDraft || (state.panelDraft = {host: (panel && panel.host) || wi.captainUid, motif: (panel && panel.motif) || '', when: (panel && panel.when) || '', location: (panel && panel.location) || ''});
     h += '<div class="card"><b>✏️ עריכת הפאנל</b>' +
       '<div class="tiny" style="margin:8px 0 4px">אצל מי מתארחים?</div><div class="chips">' +
@@ -2000,11 +2252,12 @@ function settingsHTML() {
       wardrobeHTML(d, gLv) +
       '<button class="btn primary" onclick="doSaveProfile()">שמירת המראה 🎽</button>' +
       '<div class="field" style="margin-top:14px"><label>🖼️ דיוקן דמות (נוצר ב-AI)</label>' +
-      '<div class="tiny" style="margin-bottom:6px">שלוש גרסאות מוכנות ל"' + esc((AVATARS.find(a => a.id === d.avatar) || {n:''}).n) + '" — הקישו לבחירה. מחליפים דמות למעלה כדי לראות דיוקנאות של דמויות אחרות:</div>' +
-      '<div class="row" style="gap:8px">' + [1, 2, 3].map(v => {
-        const p = 'avatars/' + d.avatar + '-' + v + '.jpg';
-        return '<img src="' + p + '" alt="" loading="lazy" onclick="pickPortrait(\'' + p + '\')" ' +
-          'style="width:31%;aspect-ratio:1;object-fit:cover;border-radius:12px;cursor:pointer;border:3px solid ' + (me.avatarImg === p ? 'var(--ac)' : 'rgba(255,255,255,.15)') + '">';
+      '<div class="tiny" style="margin-bottom:6px">' + portraitCount(d.avatar) + ' גרסאות ל"' +
+      esc(((classById(d.avatar) || AVATARS.find(a => a.id === d.avatar)) || {n:''}).n) + '" — הקישו לבחירה:</div>' +
+      '<div class="row" style="gap:6px;flex-wrap:wrap">' + Array.from({length: portraitCount(d.avatar)}, (_, i) => {
+        const p = 'avatars/' + d.avatar + '-' + (i + 1) + '.jpg';
+        return '<img src="' + p + '" alt="" loading="lazy" onerror="imgFallback(this)" onclick="pickPortrait(\'' + p + '\')" ' +
+          'style="width:' + (portraitCount(d.avatar) > 3 ? '31%' : '31%') + ';aspect-ratio:1;object-fit:cover;border-radius:12px;cursor:pointer;border:3px solid ' + (me.avatarImg === p ? 'var(--ac)' : 'rgba(255,255,255,.15)') + '">';
       }).join('') + '</div>' +
       '<div class="row" style="gap:8px;flex-wrap:wrap;margin-top:9px">' +
       '<button class="btn" onclick="$(\'avImgIn\').click()">📤 העלאת דיוקן משלי</button>' +
@@ -2020,10 +2273,21 @@ function settingsHTML() {
       '<div class="field"><label>יעד שבועי בסיסי לאדם (דק\')</label><input id="chEditGoal" type="number" min="' + GOAL_MIN_RANGE[0] + '" max="' + GOAL_MIN_RANGE[1] + '" step="10" value="' + ch.defaultGoalMin + '"></div>' +
       '<div class="field"><label>האתגר היומי (השאירו ריק כדי לכבות)</label><input id="chEditHabit" value="' + esc(ch.dailyHabit || '') + '" placeholder="' + esc(DEFAULT_DAILY_HABIT) + '"></div>' +
       '<div class="field"><label>משך האתגר (שבועות, עד 52 = שנה)</label><input id="chEditWeeks" type="number" min="2" max="52" value="' + ch.weeksTotal + '"></div>' +
+      '<div class="field"><label>תאריך פתיחה (תחילת שבוע 1)</label><input id="chEditStart" type="date" value="' + ch.startDate + '">' +
+      '<div class="tiny" style="margin-top:4px">שינוי התאריך מזיז את מספור השבועות של כל הקבוצה</div></div>' +
       '<button class="btn primary" onclick="doSaveChallenge()">שמירת הגדרות האתגר</button>' +
       '<button class="btn danger" style="margin-top:10px;width:100%" onclick="doResetGroup()">🔄 איפוס נתוני כל הקבוצה</button>' +
       '<div class="tiny" style="margin-top:4px">האיפוס מוחק נקודות, תגים, דיווחים ופיד של כולם ומתחיל את האתגר מחדש מהיום. פרופילים ומדידות גוף נשמרים.</div></div>';
   }
+  // מראה האפליקציה — אישי, לכל משתתף במכשיר שלו
+  let myPick = null; try { myPick = localStorage.getItem('fitordie_theme'); } catch (e) {}
+  h += '<div class="card"><div class="row spread"><b>🎨 מראה האפליקציה</b><span class="tiny">אישי — רק אצלך</span></div>' +
+    '<div class="tiny" style="margin:6px 0 8px">ברירת המחדל היא ערכת הנושא שהקפטן בחר לשבוע. אפשר לקבוע מראה קבוע משלכם:</div>' +
+    '<div class="themegrid">' +
+    '<button class="' + (!myPick ? 'sel' : '') + '" style="background:linear-gradient(135deg,#2b1460,#ffd23f)" onclick="setMyTheme(\'\')">לפי השבוע 🔄</button>' +
+    THEMES.map(t => '<button class="' + (myPick === t.id ? 'sel' : '') + '" style="background:linear-gradient(135deg,' + t.bg2 + ',' + t.ac + ')" onclick="setMyTheme(\'' + t.id + '\')">' + t.n + '</button>').join('') +
+    '</div></div>';
+
   h += '<div class="card"><b>📲 התקנה על האייפון</b><ol class="steps" style="margin-inline-start:18px">' +
     '<li>פתחו את הכתובת הזו ב<b>ספארי</b></li>' +
     '<li>לחצו על כפתור השיתוף <b>⬆️</b> (ריבוע עם חץ למעלה)</li>' +
@@ -2060,6 +2324,7 @@ function render() {
   else if (v === 'checkin') h = checkinHTML();
   else if (v === 'feed') h = feedHTML();
   else if (v === 'panel') h = panelHTML();
+  else if (v === 'sheet') h = sheetHTML();
   else if (v === 'group') h = groupHTML();
   else if (v === 'profile') h = profileHTML();
   else if (v === 'captain') h = captainHTML();
@@ -2084,11 +2349,12 @@ function render() {
 }
 function nav(v) {
   state.reactFor = null;
-  if (v === 'profile') { state.profileUid = state.me; state.profWeek = null; state.measForm = false; state.editWeights = false; }
+  if (v === 'profile' || v === 'sheet') { state.profileUid = state.me; state.profWeek = null; state.measForm = false; state.editWeights = false; }
   if (v === 'checkin') state.draft = {activity: (state.draft && state.draft.activity) || 'walk', minutes: 30, note:'', photo:null};
   if (v === 'captain') state.weekDraft = null;
   if (v === 'panel') state.panelDraft = null;
   if (v === 'settings' || v === 'onboard') state.editProfile = null;
+  if (v === 'home') state.homeWeek = null;
   if (v === 'feed') {
     state.feedStick = true;
     state.seenTs = Date.now();
@@ -2096,6 +2362,7 @@ function nav(v) {
   }
   state.view = v; render();
 }
+function homeWeek(n) { state.homeWeek = n; render(); window.scrollTo(0, 0); }
 function openProfile(uid) { state.profileUid = uid; state.profWeek = null; state.measForm = false; state.editWeights = false; state.view = 'profile'; render(); }
 
 /* ===================== פעולות ===================== */
@@ -2123,7 +2390,8 @@ async function doJoin() {
 }
 async function doCreate() {
   const f = {name: $('chName').value.trim(), code: $('chCode').value.trim(),
-    weeks: parseInt($('chWeeks').value) || 12, goal: parseInt($('chGoal').value) || 150};
+    weeks: parseInt($('chWeeks').value) || 12, goal: parseInt($('chGoal').value) || 150,
+    start: ($('chStart') && $('chStart').value) || dayKey(nextSunday())};
   if (!f.name || f.code.length < 3) { showToast('נא למלא שם וקוד (3+ תווים)', 'bad'); return; }
   f.goal = Math.max(GOAL_MIN_RANGE[0], Math.min(GOAL_MIN_RANGE[1], f.goal));
   try { await Store.createChallenge(f); } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
@@ -2160,7 +2428,8 @@ async function doOnboard() {
   if (parseFloat(d.startWaist)) { priv.startWaist = parseFloat(d.startWaist); entry.waist = priv.startWaist; }
   if (Object.keys(entry).length > 1) priv.measures = [entry];   // המדידה הראשונה על ציר הזמן
   try {
-    await Store.completeOnboard({name: d.name.trim(), emoji: d.emoji, color: d.color, avatar: d.avatar || 'hero'}, Object.keys(priv).length ? priv : null);
+    await Store.completeOnboard({name: d.name.trim(), emoji: d.emoji, color: d.color, avatar: d.avatar || 'fighter',
+      avatarImg: d.avatarImg || ('avatars/' + (d.avatar || 'fighter') + '-1.jpg'), pet: 'butterfly'}, Object.keys(priv).length ? priv : null);
     showToast('ברוך הבא לאתגר! 🎉', 'gold');
   } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
 }
@@ -2177,9 +2446,12 @@ async function doSaveChallenge() {
   const goal = Math.max(GOAL_MIN_RANGE[0], Math.min(GOAL_MIN_RANGE[1], parseInt($('chEditGoal').value) || state.challenge.defaultGoalMin));
   const habit = $('chEditHabit').value.trim();
   const weeks = Math.max(curWeek() + 1, Math.min(52, parseInt($('chEditWeeks').value) || state.challenge.weeksTotal));
+  const sd = $('chEditStart') && $('chEditStart').value;
   if (!name) { showToast('חסר שם לאתגר', 'bad'); return; }
+  const patch = {name, defaultGoalMin: goal, dailyHabit: habit, weeksTotal: weeks};
+  if (sd && !isNaN(Date.parse(sd))) patch.startDate = dayKey(sundayOf(new Date(Date.parse(sd))));
   try {
-    await Store.saveChallenge({name, defaultGoalMin: goal, dailyHabit: habit, weeksTotal: weeks});
+    await Store.saveChallenge(patch);
     if (state.mode === 'demo') render();
     showToast('הגדרות האתגר נשמרו ✔', 'gold');
   } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
@@ -2401,6 +2673,22 @@ async function doSetWeightsInline() {
     render();
     showToast('עודכן ✔', 'gold');
   } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
+}
+/* בחירת מחלקה/דמות — מגדירה גם את הדיוקן המתאים */
+async function pickClass(id) {
+  syncEditInputs();
+  state.editProfile.avatar = id;
+  state.editProfile.avatarImg = 'avatars/' + id + '-1.jpg';
+  render();
+  if (!state.members[state.me]) return;            // בהרשמה עדיין אין כרטיס — יישמר בסיום
+  try { await Store.saveShared({avatar: id, avatarImg: 'avatars/' + id + '-1.jpg'}); render(); }
+  catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
+}
+async function pickPet(id, lvReq) {
+  const lv = levelIndex(state.members[state.me].xp || 0);
+  if (lv < lvReq) { showToast('🔒 ' + petById(id).n + ' נפתח בדרגה ' + (lvReq + 1) + ' (' + LEVELS[lvReq].n + ')', 'bad'); return; }
+  try { await Store.saveShared({pet: id}); render(); showToast(petById(id).e + ' ' + petById(id).n + ' הצטרף אליך!', 'gold'); }
+  catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
 }
 async function pickPortrait(path) {
   try {
