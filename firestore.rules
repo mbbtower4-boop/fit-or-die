@@ -52,14 +52,17 @@ service cloud.firestore {
       }
 
       match /weeks/{w} {
-        allow read, create, update: if isMember(cid);
+        // מחיקה נדרשת לאיפוס קבוצתי ע"י המארגן
+        allow read, create, update, delete: if isMember(cid);
       }
 
       match /feed/{id} {
         allow read, create: if isMember(cid);
-        // עדכון (ריאקציות) — כל חבר; מחיקה — רק כותב הפריט
+        // עדכון (ריאקציות) — כל חבר; מחיקה — כותב הפריט או המארגן (איפוס קבוצתי)
         allow update: if isMember(cid);
-        allow delete: if isMember(cid) && resource.data.uid == request.auth.uid;
+        allow delete: if isMember(cid) &&
+          (resource.data.uid == request.auth.uid ||
+           get(/databases/$(db)/documents/challenges/$(cid)).data.organizerUid == request.auth.uid);
       }
     }
   }

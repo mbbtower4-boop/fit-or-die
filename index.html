@@ -45,7 +45,7 @@ h2{font-size:1.15em;font-weight:800;margin-bottom:10px}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:11px 16px;font-weight:700;transition:transform .1s}
 .btn:active{transform:scale(.96)}
 .btn.primary{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#1c1029;border:none;box-shadow:0 4px 18px rgba(255,180,60,.35)}
-.btn.big{width:100%;padding:15px;font-size:1.1em;border-radius:16px}
+.btn.big{display:flex;width:100%;padding:15px;font-size:1.1em;border-radius:16px}
 .btn.danger{color:var(--bad);border-color:rgba(255,87,87,.4)}
 .chip{display:inline-flex;align-items:center;gap:5px;background:var(--card2);border-radius:999px;padding:4px 11px;font-size:.8em;font-weight:600}
 
@@ -234,7 +234,7 @@ h2{font-size:1.15em;font-weight:800;margin-bottom:10px}
      - מצב ענן (FireStore): Firebase Auth + Firestore, סנכרון חי
        בין המשתתפים. ראו SETUP-FIREBASE.md להקמה.
    ============================================================ */
-const APP_VERSION = '0.5.0';
+const APP_VERSION = '0.6.0';
 
 /* ==== הגדרות Firebase ====
    אחרי הקמת הפרויקט (ראה SETUP-FIREBASE.md) מדביקים כאן את
@@ -300,6 +300,7 @@ const MIN_WORKOUT = 10;             // דקות מינימום לאימון שנ
 const SLEEP_NIGHT_MIN = 7;
 const SLEEP_NIGHT_MAX = 8;
 const SLEEP_WEEK_GOAL = 49;
+const CHEAT_XP_STEP = 2000;   // כל 2000 XP קבוצתי מזכה בפאנל CHEAT 🍕
 
 /* ===================== עזרי בסיס ===================== */
 const $ = id => document.getElementById(id);
@@ -410,6 +411,8 @@ const WS_DEFAULTS = () => ({min:0, daysArr:[], goalBonus:false, spreadBonus:fals
 function memberWeek(m, n) { return (m.weekStats && m.weekStats[n]) || WS_DEFAULTS(); }
 function groupWeekMin(n) { return Object.values(state.members).reduce((s, m) => s + memberWeek(m, n).min, 0); }
 function groupWeekSleep(n) { return Math.round(Object.values(state.members).reduce((s, m) => s + (memberWeek(m, n).sleep || 0), 0) * 10) / 10; }
+function groupXpTotal() { return Object.values(state.members).reduce((s, m) => s + (m.xp || 0), 0); }
+function cheatPending() { return Math.floor(groupXpTotal() / CHEAT_XP_STEP) - (state.challenge.cheatUsed || 0); }
 function daysLeftInWeek() {
   const end = Date.parse(state.challenge.startDate) + (curWeek()+1) * 7 * 864e5;
   return Math.max(0, Math.ceil((end - Date.now()) / 864e5));
@@ -567,6 +570,7 @@ const DemoStore = {
   async checkin(c) {
     const w = curWeek(), wi = weekInfo(w);
     const groupBefore = groupWeekMin(w);
+    this._gxpBefore = groupXpTotal();
     const res = applyCheckin(state.members[state.me], w, wi.goalMin, c);
     // ראשון בשטח: הדיווח הראשון בקבוצה השבוע (מיום ראשון) — תג + 15 XP
     if (groupBefore === 0) {
@@ -592,6 +596,11 @@ const DemoStore = {
       Object.values(state.members).forEach(m => m.xp += 30);
       state.feed.push({id: uidGen(), type:'system', ts: Date.now(), text:'🏆 הקבוצה עמדה ביעד השבועי! +30 XP לכל אחד!', reactions:{}});
       res.events.push({t:'group'});
+    }
+    // חציית סף פאנל ה-CHEAT (כל CHEAT_XP_STEP נק' קבוצתיות)
+    if (Math.floor(this._gxpBefore / CHEAT_XP_STEP) < Math.floor(groupXpTotal() / CHEAT_XP_STEP)) {
+      state.feed.push({id: uidGen(), type:'system', ts: Date.now(), text:'🍕 הקבוצה חצתה ' + Math.floor(groupXpTotal() / CHEAT_XP_STEP) * CHEAT_XP_STEP + ' XP — פאנל CHEAT נפתח!', reactions:{}});
+      res.events.push({t:'cheat'});
     }
     this.save();
     return res;
@@ -681,6 +690,21 @@ const DemoStore = {
     });
     this.save();
     return res;
+  },
+  async claimCheat() {
+    state.challenge.cheatUsed = (state.challenge.cheatUsed || 0) + 1;
+    this.data.challenge = state.challenge;
+    state.feed.push({id: uidGen(), type:'system', ts: Date.now(), text:'🍕 פאנל ה-CHEAT נחגג! הספירה לפאנל הבא התחילה 💪', reactions:{}});
+    this.save();
+  },
+  async resetGroup() {
+    Object.values(state.members).forEach(m => { m.xp = 0; m.badges = []; m.streakDays = 0; m.lastActiveDay = null; m.weekStats = {}; });
+    state.weeks = {}; this.data.weeks = state.weeks;
+    state.feed = []; this.data.feed = state.feed;
+    state.challenge.startDate = dayKey(sundayOf(new Date()));
+    state.challenge.cheatUsed = 0;
+    state.feed.push({id: uidGen(), type:'system', ts: Date.now(), text:'🔄 האתגר אופס — יוצאים לדרך חדשה! 🚀', reactions:{}});
+    this.save();
   },
   async setBring(n, text) {
     const wk = state.weeks[n] = Object.assign({}, state.weeks[n]);
@@ -916,6 +940,14 @@ const FireStore = {
     if (groupBefore === 0)
       b.set(this.chRef().collection('feed').doc(), {type:'system', ts: Date.now()+1,
         text:'🎬 ראשון בשטח — ' + res.m.name + ' עם הדיווח הראשון של שבוע ' + (w+1) + '! +15', reactions:{}});
+    // חציית סף פאנל ה-CHEAT (חישוב מקומי: הנקודות שנוספו לי בדיווח הזה)
+    const gxpBefore = groupXpTotal();
+    const gxpAfter = gxpBefore + (res.m.xp - (state.members[state.me].xp || 0));
+    if (Math.floor(gxpBefore / CHEAT_XP_STEP) < Math.floor(gxpAfter / CHEAT_XP_STEP)) {
+      b.set(this.chRef().collection('feed').doc(), {type:'system', ts: Date.now()+2,
+        text:'🍕 הקבוצה חצתה ' + Math.floor(gxpAfter / CHEAT_XP_STEP) * CHEAT_XP_STEP + ' XP — פאנל CHEAT נפתח!', reactions:{}});
+      res.events.push({t:'cheat'});
+    }
     await b.commit();
     // בונוס קבוצתי בטרנזקציה — פעם אחת בלבד לשבוע
     const groupGoal = wi.goalMin * Object.keys(state.members).length;
@@ -1024,6 +1056,25 @@ const FireStore = {
     });
     await b.commit();
     return res;
+  },
+  async claimCheat() {
+    await this.chRef().update({cheatUsed: this.FV.increment(1)});
+    await this.chRef().collection('feed').add({type:'system', ts: Date.now(), text:'🍕 פאנל ה-CHEAT נחגג! הספירה לפאנל הבא התחילה 💪', reactions:{}});
+  },
+  async resetGroup() {
+    const b = this.db.batch();
+    Object.keys(state.members).forEach(uid => b.update(this.chRef().collection('members').doc(uid),
+      {xp: 0, badges: [], streakDays: 0, lastActiveDay: null, weekStats: {}}));
+    b.update(this.chRef(), {startDate: dayKey(sundayOf(new Date())), cheatUsed: 0});
+    await b.commit();
+    const wk = await this.chRef().collection('weeks').get();
+    if (!wk.empty) { const b2 = this.db.batch(); wk.forEach(d => b2.delete(d.ref)); await b2.commit(); }
+    let fd = await this.chRef().collection('feed').limit(400).get();
+    while (!fd.empty) {
+      const bd = this.db.batch(); fd.forEach(d => bd.delete(d.ref)); await bd.commit();
+      fd = await this.chRef().collection('feed').limit(400).get();
+    }
+    await this.chRef().collection('feed').add({type:'system', ts: Date.now(), text:'🔄 האתגר אופס — יוצאים לדרך חדשה! 🚀', reactions:{}});
   },
   async setBring(n, text) {
     await this.chRef().collection('weeks').doc(String(n)).set({brings: {[state.me]: text}}, {merge: true});
@@ -1216,8 +1267,7 @@ function ringHTML(pct, size, stroke, color, centerHTML) {
 }
 function topbarHTML() {
   return '<div class="topbar"><div class="logo">FIT or DIE! 💀<span class="ver">v' + APP_VERSION + '</span></div>' +
-    '<button class="gear" onclick="nav(\'settings\')">⚙️</button></div>' +
-    (state.mode === 'demo' ? '<div class="demobanner">🧪 מצב הדגמה — הנתונים נשמרים רק במכשיר הזה</div>' : '');
+    '<button class="gear" onclick="nav(\'settings\')">⚙️</button></div>';
 }
 function feedUnread() {
   return state.feed.some(f => f.ts > (state.seenTs || 0) && f.uid !== state.me);
@@ -1319,12 +1369,37 @@ function homeHTML() {
     (wi.title ? '<div style="margin-top:6px;font-weight:800;color:var(--ac)">🎯 ' + esc(wi.title) + '</div>' : '') +
     '<div class="row spread" style="margin-top:7px"><span class="row" style="gap:6px">' + (cap ? avatarHTML(cap,1) + '<span class="muted">קפטן השבוע: <b style="color:var(--tx)">' + esc(cap.name) + '</b></span>' : '') + '</span>' +
     '<span class="chip">' + (dl <= 1 ? '⏰ היום האחרון!' : '⏳ עוד ' + dl + ' ימים') + '</span></div>' +
-    (wi.panel && state.members[wi.panel.host]
-      ? '<button class="chip" style="margin-top:8px" onclick="nav(\'panel\')">🥗 פאנל אצל ' + esc(state.members[wi.panel.host].name) + (wi.panel.when ? ' · ' + esc(wi.panel.when) : '') + ' ←</button>'
-      : '') + '</div>';
+    '</div>';
 
   if (wi.captainUid === state.me)
     h += '<button class="captainbtn" onclick="nav(\'captain\')">⚡ זה השבוע שלך, קפטן! ניהול השבוע ←</button>';
+
+  // הפאנל השבועי — מפורסם במסך הבית
+  const cheatPend = cheatPending() > 0;
+  h += '<div class="card"' + (cheatPend ? ' style="border-color:var(--ac);box-shadow:0 0 14px rgba(255,210,63,.3)"' : '') + '>' +
+    '<div class="row spread"><b>🥗 הפאנל השבועי' + (cheatPend ? ' — CHEAT! 🍕' : '') + '</b><button class="chip" onclick="nav(\'panel\')">לפרטים ←</button></div>';
+  if (wi.panel && state.members[wi.panel.host]) {
+    const hst = state.members[wi.panel.host];
+    const bringsCnt = Object.keys(wi.brings).filter(k => wi.brings[k]).length;
+    h += '<div class="row" style="gap:10px;margin-top:8px">' + avatarHTML(hst, 1) + '<b>אצל ' + esc(hst.name) + '</b>' +
+      (wi.panel.when ? '<span class="chip">🕒 ' + esc(wi.panel.when) + '</span>' : '') + '</div>' +
+      '<div class="row" style="gap:8px;margin-top:6px;flex-wrap:wrap">' +
+      (wi.panel.location ? '<span class="chip">📍 ' + esc(wi.panel.location) + '</span>' : '') +
+      (wi.panel.motif ? '<span class="chip">🎪 ' + esc(wi.panel.motif) + '</span>' : '') +
+      '<span class="chip">🧺 נרשמו ' + bringsCnt + '/' + Object.keys(state.members).length + '</span></div>';
+  } else {
+    h += '<div class="muted" style="margin-top:6px">עוד לא נקבע פאנל השבוע — קבעו בלשונית הפאנל 🤗</div>';
+  }
+  if (cheatPend) h += '<div class="tiny" style="margin-top:8px;color:var(--ac)">הקבוצה צברה מספיק נקודות — הפאנל הקרוב הוא פאנל CHEAT חופשי מהחוקים! 🍕🍔</div>';
+  h += '</div>';
+
+  // מד פאנל ה-CHEAT — התקדמות לפי נקודות הניסיון של כל הקבוצה
+  const gxp = groupXpTotal(), intoCheat = gxp % CHEAT_XP_STEP;
+  h += '<div class="card"><div class="row spread"><b>🍕 מד פאנל ה-CHEAT</b><span class="tiny">' + gxp + ' XP קבוצתי</span></div>' +
+    '<div class="mbar" style="margin-top:8px;height:12px"><i style="width:' + Math.round(intoCheat / CHEAT_XP_STEP * 100) + '%;background:linear-gradient(90deg,var(--ac),var(--ac2))"></i></div>' +
+    '<div class="tiny" style="margin-top:5px">' + (cheatPend
+      ? 'פאנל CHEAT ממתין לכם! אחרי שחגגתם — סמנו בלשונית הפאנל 🍕'
+      : 'עוד ' + (CHEAT_XP_STEP - intoCheat) + ' נק\' קבוצתיות לפאנל CHEAT הבא (כל ' + CHEAT_XP_STEP + ')') + '</div></div>';
 
   // טבעת אישית + מד קבוצתי
   const pct = ws.min / wi.goalMin;
@@ -1480,7 +1555,13 @@ function groupHTML() {
         '<div class="tiny">' + LEVELS[lv].e + ' ' + LEVELS[lv].n + ' · ' + m.xp + ' XP' + (m.streakDays ? ' · 🔥 רצף ' + m.streakDays : '') + '</div>' +
         '<div class="mbar"><i style="width:' + Math.min(100, (x.min / wi.goalMin) * 100) + '%;background:' + m.color + '"></i></div>' +
         '<div class="tiny" style="margin-top:3px">💪 ' + x.min + ' / ' + wi.goalMin + ' דק\' · 😴 ' + (mw.sleep || 0) + ' / ' + SLEEP_WEEK_GOAL + ' שע\'' + (state.challenge.dailyHabit ? ' · 🥦 ' + (mw.habitDays || []).length + '/7' : '') + '</div></div></div></div>';
-    }).join('') + navHTML();
+    }).join('') +
+    '<div class="card"><b>➕ הוספת חבר לקבוצה</b>' +
+    '<div class="muted" style="margin:6px 0 8px">שולחים לחבר את הקישור לאפליקציה ואת קוד ההזמנה — הוא נרשם, מזין את הקוד, בונה דמות ומצטרף:</div>' +
+    '<div class="row" style="gap:8px;flex-wrap:wrap"><span class="chip" style="font-size:1.05em;letter-spacing:3px;font-weight:800">' + esc(state.challenge.code) + '</span>' +
+    '<button class="btn" onclick="doShareInvite()">📤 שיתוף הזמנה</button></div>' +
+    (state.mode === 'demo' ? '<div class="tiny" style="margin-top:6px">במצב הדגמה ההצטרפות לא אמיתית — היא תעבוד ברגע שהאתגר יחובר לענן (Firebase)</div>' : '') + '</div>' +
+    navHTML();
 }
 
 function profileHTML() {
@@ -1521,22 +1602,52 @@ function profileHTML() {
       return '<div class="wb"><i style="height:' + (v/maxV*100) + '%"></i><span>ש' + (i+1) + '</span></div>';
     }).join('') + '</div></div>';
 
-  // היסטוריה שבועית — התקדמות לאורך ציר הזמן, לכל מתאמן
-  const selW = state.profWeek == null ? cw : state.profWeek;
-  const hw = memberWeek(m, selW), hwi = weekInfo(selW);
-  const hwStart = Date.parse(state.challenge.startDate) + selW * 7 * 864e5;
-  h += '<div class="card"><b>🗓️ מסע לאורך השבועות</b>' +
-    '<div class="wkhist">' + Array.from({length: cw + 1}, (_, i) =>
-      '<button class="chip ' + (selW === i ? 'sel' : '') + '" onclick="state.profWeek=' + i + ';render()">ש' + (i+1) + '</button>').join('') + '</div>' +
-    '<div class="row" style="flex-wrap:wrap;gap:8px">' +
-    '<span class="chip">💪 ' + hw.min + '/' + hwi.goalMin + ' דק\'' + (hw.goalBonus ? ' ✔' : '') + '</span>' +
-    '<span class="chip">📅 ' + (hw.daysArr || []).length + ' ימים פעילים' + (hw.spreadBonus ? ' ✔' : '') + '</span>' +
-    '<span class="chip">😴 ' + (hw.sleep || 0) + '/' + SLEEP_WEEK_GOAL + ' שע\'' + (hw.sleepGoalBonus ? ' ✔' : '') + '</span>' +
-    (state.challenge.dailyHabit ? '<span class="chip">🥦 ' + (hw.habitDays || []).length + '/7' + (hw.habitBonus ? ' ✔' : '') + '</span>' : '') + '</div>' +
-    '<div class="daydots" style="margin-top:10px">' + DAY_LETTERS.map((L, i) => {
-      const dk2 = dayKey(new Date(hwStart + i * 864e5));
-      return '<div class="daydot ' + ((hw.daysArr || []).includes(dk2) ? 'on' : '') + '"><i></i>' + L + '</div>';
-    }).join('') + '</div></div>';
+  // מסע לאורך הזמן — 4 השבועות האחרונים בנפרד, והישנים מקובצים לחודשים
+  // (כך אפשר לתעד גם שנה שלמה ויותר בלי שהמחוון יתפוצץ)
+  const wkStartTs = i => Date.parse(state.challenge.startDate) + i * 7 * 864e5;
+  const units = [];
+  for (let i = 0; i <= cw; i++) {
+    if (i > cw - 4) { units.push({t:'w', key:'w' + i, label:'ש' + (i+1), i}); continue; }
+    const dt = new Date(wkStartTs(i));
+    const mkey = 'm' + dt.getFullYear() + '-' + (dt.getMonth() + 1);
+    let u = units.find(x => x.key === mkey);
+    if (!u) { u = {t:'m', key: mkey, label: dt.toLocaleDateString('he-IL', {month:'long'}) + (dt.getFullYear() !== new Date().getFullYear() ? ' ' + dt.getFullYear() : ''), weeks: []}; units.push(u); }
+    u.weeks.push(i);
+  }
+  const selKey = (typeof state.profWeek === 'string' && units.some(u => u.key === state.profWeek)) ? state.profWeek : 'w' + cw;
+  const selUnit = units.find(u => u.key === selKey);
+  h += '<div class="card"><b>🗓️ מסע לאורך הזמן</b>' +
+    '<div class="wkhist">' + units.map(u =>
+      '<button class="chip ' + (u.key === selKey ? 'sel' : '') + '" onclick="state.profWeek=\'' + u.key + '\';render()">' + u.label + '</button>').join('') + '</div>';
+  if (selUnit.t === 'w') {
+    const hw = memberWeek(m, selUnit.i), hwi = weekInfo(selUnit.i);
+    const hwStart = wkStartTs(selUnit.i);
+    h += '<div class="row" style="flex-wrap:wrap;gap:8px">' +
+      '<span class="chip">💪 ' + hw.min + '/' + hwi.goalMin + ' דק\'' + (hw.goalBonus ? ' ✔' : '') + '</span>' +
+      '<span class="chip">📅 ' + (hw.daysArr || []).length + ' ימים פעילים' + (hw.spreadBonus ? ' ✔' : '') + '</span>' +
+      '<span class="chip">😴 ' + (hw.sleep || 0) + '/' + SLEEP_WEEK_GOAL + ' שע\'' + (hw.sleepGoalBonus ? ' ✔' : '') + '</span>' +
+      (state.challenge.dailyHabit ? '<span class="chip">🥦 ' + (hw.habitDays || []).length + '/7' + (hw.habitBonus ? ' ✔' : '') + '</span>' : '') + '</div>' +
+      '<div class="daydots" style="margin-top:10px">' + DAY_LETTERS.map((L, i) => {
+        const dk2 = dayKey(new Date(hwStart + i * 864e5));
+        return '<div class="daydot ' + ((hw.daysArr || []).includes(dk2) ? 'on' : '') + '"><i></i>' + L + '</div>';
+      }).join('') + '</div>';
+  } else {
+    const agg = selUnit.weeks.reduce((a, i) => {
+      const x = memberWeek(m, i);
+      a.min += x.min; a.days += (x.daysArr || []).length; a.sleep += x.sleep || 0;
+      a.habit += (x.habitDays || []).length; a.goals += x.goalBonus ? 1 : 0; a.goalSum += weekInfo(i).goalMin;
+      return a;
+    }, {min:0, days:0, sleep:0, habit:0, goals:0, goalSum:0});
+    const n = selUnit.weeks.length;
+    h += '<div class="tiny" style="margin-bottom:6px">סיכום חודשי · ' + n + ' שבועות</div>' +
+      '<div class="row" style="flex-wrap:wrap;gap:8px">' +
+      '<span class="chip">💪 ' + agg.min + '/' + agg.goalSum + ' דק\'</span>' +
+      '<span class="chip">📅 ' + agg.days + ' ימים פעילים</span>' +
+      '<span class="chip">😴 ' + (Math.round(agg.sleep * 10) / 10) + '/' + (SLEEP_WEEK_GOAL * n) + ' שע\'</span>' +
+      (state.challenge.dailyHabit ? '<span class="chip">🥦 ' + agg.habit + '/' + (7 * n) + '</span>' : '') +
+      '<span class="chip">🏆 ' + agg.goals + '/' + n + ' שבועות ביעד</span></div>';
+  }
+  h += '</div>';
 
   // מדידות גוף: משקל + היקף זרוע/בטן/מותניים — משותפים לקבוצה (עריכה רק לבעלים)
   const meas = getMeasures(m);
@@ -1551,9 +1662,9 @@ function profileHTML() {
       '<div class="tiny">' + (mine ? 'הוסיפו מדידות כדי לראות גרף התקדמות' : 'אין עדיין מספיק מדידות לגרף') + '</div>') +
     CIRCS.map(f => {
       const startV = m[f.s];
-      const pts = meas.filter(e => e[f.id] != null).map(e => e[f.id]);
-      const last = pts.length ? pts[pts.length-1] : startV;
-      if (last == null) return mine ? '' : '';
+      const pts = meas.filter(e => e[f.id] != null).map(e => ({date: e.date, v: e[f.id]}));
+      const last = pts.length ? pts[pts.length-1].v : startV;
+      if (last == null) return '';
       const delta = (startV != null && pts.length) ? Math.round((last - startV) * 10) / 10 : null;
       return '<div class="row" style="gap:10px;margin-top:8px;flex-wrap:wrap"><b style="font-size:.9em">' + f.e + ' ' + f.n + '</b>' +
         (startV != null ? '<span class="chip">התחלה: ' + startV + '</span>' : '') +
@@ -1561,9 +1672,11 @@ function profileHTML() {
         (delta != null && delta !== 0 ? '<span class="chip" style="color:' + (delta < 0 ? 'var(--ok)' : 'var(--tx2)') + '">' + (delta > 0 ? '+' : '') + delta + ' ס"מ</span>' : '') + '</div>' +
         (pts.length >= 2 ? miniChartSVG(pts) : '');
     }).join('') +
-    (mine ? '<div class="row" style="margin-top:12px;flex-wrap:wrap;gap:8px">' +
-      '<button class="chip" onclick="state.measForm=!state.measForm;state.editWeights=false;render()">+ מדידה חדשה 📏</button>' +
-      '<button class="chip" onclick="state.editWeights=!state.editWeights;state.measForm=false;render()">⚙️ נתוני התחלה ויעד</button></div>' +
+    (mine ? '<div class="row" style="margin-top:12px;gap:8px">' +
+      '<button class="btn primary grow" onclick="state.measForm=!state.measForm;state.editWeights=false;render()">+ מדידה חדשה 📏</button>' +
+      '<button class="btn" onclick="state.editWeights=!state.editWeights;state.measForm=false;render()">⚙️ התחלה ויעד</button></div>' +
+      (mine && !getMeasures(m).length && !m.startWeight && !m.startArm && !m.startBelly && !m.startWaist && !state.measForm && !state.editWeights
+        ? '<div class="tiny" style="margin-top:8px;color:var(--ac)">👋 עוד אין מדידות — לחצו "+ מדידה חדשה" והזינו נקודת פתיחה (משקל והיקפים)</div>' : '') +
       (state.measForm ? '<div class="row" style="margin-top:8px;flex-wrap:wrap;gap:6px">' +
         '<input id="mW" type="number" step="0.1" inputmode="decimal" placeholder="משקל" style="flex:1;min-width:74px">' +
         '<input id="mArm" type="number" step="0.5" inputmode="decimal" placeholder="זרוע" style="flex:1;min-width:74px">' +
@@ -1595,30 +1708,46 @@ function getMeasures(m) {
     : (m.weighIns || []).map(w => ({date: w.date, weight: w.kg}));   // תאימות למבנה הישן
   return arr.sort((a, b) => a.date < b.date ? -1 : 1);
 }
-function miniChartSVG(vals) {
-  const W = 340, H = 48, p = 10;
+/* ציר X לפי תאריך אמיתי — רואים מתי כל מדידה קרתה */
+function fmtDM(dateStr) { const d = new Date(Date.parse(dateStr)); return d.getUTCDate() + '.' + (d.getUTCMonth() + 1); }
+function timeX(dates, W, pad) {
+  const t0 = Date.parse(dates[0]), t1 = Date.parse(dates[dates.length - 1]);
+  const span = Math.max(t1 - t0, 864e5);
+  return i => pad + (W - 2 * pad) * ((Date.parse(dates[i]) - t0) / span);
+}
+/* בוחר עד 4 אינדקסים מפוזרים לתוויות תאריך, בלי צפיפות */
+function labelIdx(n) {
+  if (n <= 4) return Array.from({length: n}, (_, i) => i);
+  return [0, Math.round((n - 1) / 3), Math.round(2 * (n - 1) / 3), n - 1];
+}
+function miniChartSVG(pts) {   // pts: [{date, v}]
+  const W = 340, H = 60, p = 12, vals = pts.map(x => x.v);
   let mn = Math.min(...vals), mx = Math.max(...vals);
   if (mx - mn < 1) { mn -= 0.5; mx += 0.5; }
-  const X = i => p + (W - 2*p) * (vals.length === 1 ? 0.5 : i / (vals.length - 1));
-  const Y = v => H - p - (H - 2*p) * ((v - mn) / (mx - mn));
+  const X = timeX(pts.map(x => x.date), W, p);
+  const Y = v => (H - 16) - (H - 16 - p) * ((v - mn) / (mx - mn));
   return '<svg class="svgchart" viewBox="0 0 ' + W + ' ' + H + '">' +
-    '<polyline points="' + vals.map((v, i) => X(i) + ',' + Y(v)).join(' ') + '" fill="none" stroke="var(--ac2)" stroke-width="2" stroke-linejoin="round"/>' +
-    vals.map((v, i) => '<circle cx="' + X(i) + '" cy="' + Y(v) + '" r="3" fill="var(--ac2)"/>').join('') + '</svg>';
+    '<line x1="' + p + '" y1="' + (H - 14) + '" x2="' + (W - p) + '" y2="' + (H - 14) + '" stroke="rgba(255,255,255,.15)" stroke-width="1"/>' +
+    '<polyline points="' + pts.map((x, i) => X(i) + ',' + Y(x.v)).join(' ') + '" fill="none" stroke="var(--ac2)" stroke-width="2" stroke-linejoin="round"/>' +
+    pts.map((x, i) => '<circle cx="' + X(i) + '" cy="' + Y(x.v) + '" r="3" fill="var(--ac2)"/>').join('') +
+    labelIdx(pts.length).map(i => '<text x="' + X(i) + '" y="' + (H - 3) + '" fill="var(--tx3)" font-size="8.5" text-anchor="middle">' + fmtDM(pts[i].date) + '</text>').join('') +
+    '</svg>';
 }
-function weightChartSVG(p, wis) {
-  const W = 340, H = 150, pad = 26;
+function weightChartSVG(p, wis) {   // wis: [{date, kg}]
+  const W = 340, H = 162, pad = 26;
   const vals = wis.map(w => w.kg).concat(p.goalWeight ? [p.goalWeight] : []).concat(p.startWeight ? [p.startWeight] : []);
   let mn = Math.min(...vals), mx = Math.max(...vals);
   if (mx - mn < 2) { mn -= 1; mx += 1; }
-  const X = i => pad + (W - 2*pad) * (wis.length === 1 ? .5 : i / (wis.length - 1));
-  const Y = v => H - pad - (H - 2*pad) * ((v - mn) / (mx - mn));
-  const pts = wis.map((w, i) => X(i) + ',' + Y(w.kg)).join(' ');
+  const X = timeX(wis.map(w => w.date), W, pad);
+  const Y = v => (H - 22) - (H - 22 - pad) * ((v - mn) / (mx - mn));
   return '<svg class="svgchart" viewBox="0 0 ' + W + ' ' + H + '">' +
-    (p.goalWeight ? '<line x1="' + pad + '" y1="' + Y(p.goalWeight) + '" x2="' + (W-pad) + '" y2="' + Y(p.goalWeight) + '" stroke="var(--ok)" stroke-dasharray="5 4" stroke-width="1.5" opacity=".7"/>' +
-      '<text x="' + (W-pad) + '" y="' + (Y(p.goalWeight)-5) + '" fill="var(--ok)" font-size="10" text-anchor="end">יעד ' + p.goalWeight + '</text>' : '') +
-    '<polyline points="' + pts + '" fill="none" stroke="var(--ac)" stroke-width="2.5" stroke-linejoin="round"/>' +
+    '<line x1="' + pad + '" y1="' + (H - 18) + '" x2="' + (W - pad) + '" y2="' + (H - 18) + '" stroke="rgba(255,255,255,.18)" stroke-width="1"/>' +
+    (p.goalWeight ? '<line x1="' + pad + '" y1="' + Y(p.goalWeight) + '" x2="' + (W - pad) + '" y2="' + Y(p.goalWeight) + '" stroke="var(--ok)" stroke-dasharray="5 4" stroke-width="1.5" opacity=".7"/>' +
+      '<text x="' + (W - pad) + '" y="' + (Y(p.goalWeight) - 5) + '" fill="var(--ok)" font-size="10" text-anchor="end">יעד ' + p.goalWeight + '</text>' : '') +
+    '<polyline points="' + wis.map((w, i) => X(i) + ',' + Y(w.kg)).join(' ') + '" fill="none" stroke="var(--ac)" stroke-width="2.5" stroke-linejoin="round"/>' +
     wis.map((w, i) => '<circle cx="' + X(i) + '" cy="' + Y(w.kg) + '" r="4" fill="var(--ac)"/>' +
       '<text x="' + X(i) + '" y="' + (Y(w.kg) - 9) + '" fill="var(--tx2)" font-size="10" text-anchor="middle">' + w.kg + '</text>').join('') +
+    labelIdx(wis.length).map(i => '<text x="' + X(i) + '" y="' + (H - 5) + '" fill="var(--tx3)" font-size="9" text-anchor="middle">' + fmtDM(wis[i].date) + '</text>').join('') +
     '</svg>';
 }
 
@@ -1648,6 +1777,12 @@ function panelHTML() {
   const panel = wi.panel, brings = wi.brings;
   let h = topbarHTML() + '<h2>🥗 הפאנל השבועי <span class="muted" style="font-weight:400;font-size:.7em">שבוע ' + (w+1) + '</span></h2>' +
     '<div class="tiny" style="margin:-4px 0 12px">המפגש הפיזי של הקבוצה — כל אחד מביא משהו בריא 🙂</div>';
+  // פאנל CHEAT — כשהקבוצה צברה מספיק XP
+  if (cheatPending() > 0) {
+    h += '<div class="card" style="border-color:var(--ac);box-shadow:0 0 14px rgba(255,210,63,.3)"><b>🍕 זה פאנל CHEAT!</b>' +
+      '<div class="muted" style="margin:6px 0 10px">הקבוצה צברה ' + groupXpTotal() + ' XP — הפאנל הזה חופשי מהחוקים: פיצה, בורגר, מה שבא 🍔🍟</div>' +
+      '<button class="btn primary" onclick="doClaimCheat()">חגגנו! סוגרים את הצ\'יט ✔</button></div>';
+  }
   if (panel && state.members[panel.host]) {
     const host = state.members[panel.host];
     h += '<div class="card weekcard"><div class="row" style="gap:12px">' + avatarHTML(host, 2) +
@@ -1702,7 +1837,10 @@ function settingsHTML() {
       '<div class="field" style="margin-top:8px"><label>שם האתגר</label><input id="chEditName" value="' + esc(ch.name) + '"></div>' +
       '<div class="field"><label>יעד שבועי בסיסי לאדם (דק\')</label><input id="chEditGoal" type="number" min="' + GOAL_MIN_RANGE[0] + '" max="' + GOAL_MIN_RANGE[1] + '" step="10" value="' + ch.defaultGoalMin + '"></div>' +
       '<div class="field"><label>האתגר היומי (השאירו ריק כדי לכבות)</label><input id="chEditHabit" value="' + esc(ch.dailyHabit || '') + '" placeholder="' + esc(DEFAULT_DAILY_HABIT) + '"></div>' +
-      '<button class="btn primary" onclick="doSaveChallenge()">שמירת הגדרות האתגר</button></div>';
+      '<div class="field"><label>משך האתגר (שבועות, עד 52 = שנה)</label><input id="chEditWeeks" type="number" min="2" max="52" value="' + ch.weeksTotal + '"></div>' +
+      '<button class="btn primary" onclick="doSaveChallenge()">שמירת הגדרות האתגר</button>' +
+      '<button class="btn danger" style="margin-top:10px;width:100%" onclick="doResetGroup()">🔄 איפוס נתוני כל הקבוצה</button>' +
+      '<div class="tiny" style="margin-top:4px">האיפוס מוחק נקודות, תגים, דיווחים ופיד של כולם ומתחיל את האתגר מחדש מהיום. פרופילים ומדידות גוף נשמרים.</div></div>';
   }
   h += '<div class="card"><b>📲 התקנה על האייפון</b><ol class="steps" style="margin-inline-start:18px">' +
     '<li>פתחו את הכתובת הזו ב<b>ספארי</b></li>' +
@@ -1848,9 +1986,10 @@ async function doSaveChallenge() {
   const name = $('chEditName').value.trim();
   const goal = Math.max(GOAL_MIN_RANGE[0], Math.min(GOAL_MIN_RANGE[1], parseInt($('chEditGoal').value) || state.challenge.defaultGoalMin));
   const habit = $('chEditHabit').value.trim();
+  const weeks = Math.max(curWeek() + 1, Math.min(52, parseInt($('chEditWeeks').value) || state.challenge.weeksTotal));
   if (!name) { showToast('חסר שם לאתגר', 'bad'); return; }
   try {
-    await Store.saveChallenge({name, defaultGoalMin: goal, dailyHabit: habit});
+    await Store.saveChallenge({name, defaultGoalMin: goal, dailyHabit: habit, weeksTotal: weeks});
     if (state.mode === 'demo') render();
     showToast('הגדרות האתגר נשמרו ✔', 'gold');
   } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
@@ -1861,6 +2000,28 @@ async function doHabit(on) {
     render();
     if (res.xp > 0) xpPop(res.xp);
     celebrate(res.events);
+  } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
+}
+async function doClaimCheat() {
+  if (!confirm('לסגור את פאנל ה-CHEAT? (אחרי שחגגתם 🍕)')) return;
+  try { await Store.claimCheat(); render(); showToast('שיהיה לבריאות! הספירה לצ\'יט הבא התחילה 🍕', 'gold'); }
+  catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
+}
+async function doShareInvite() {
+  const url = location.origin + location.pathname;
+  const txt = 'מצטרפים אליי לאתגר "' + state.challenge.name + '" ב-Fit or DIE! 💀🔥\n' + url + '\nקוד הזמנה: ' + state.challenge.code;
+  try { if (navigator.share) { await navigator.share({text: txt}); return; } }
+  catch (e) { if (e && e.name === 'AbortError') return; }
+  try { await navigator.clipboard.writeText(txt); showToast('ההזמנה הועתקה — הדביקו בוואטסאפ 📋', 'gold'); }
+  catch (e) { prompt('העתיקו את ההזמנה:', txt); }
+}
+async function doResetGroup() {
+  if (!confirm('לאפס את נתוני כל הקבוצה?\nיתאפסו: נקודות, תגים, רצפים, דיווחים, הפיד והשבועות.\nיישמרו: הפרופילים ומדידות הגוף.')) return;
+  if (!confirm('בטוח-בטוח? אי אפשר לבטל את זה.')) return;
+  try {
+    await Store.resetGroup();
+    state.view = 'home'; applyTheme(); render();
+    showToast('האתגר אופס — יוצאים לדרך חדשה! 🚀', 'gold');
   } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
 }
 function draftSet(k, v) { state.draft[k] = v; render(); }
@@ -1893,6 +2054,7 @@ function celebrate(events) {
     if (ev.t === 'gsleep') showToast('😴 הקבוצה עמדה ביעד השינה! +20 לכולם', 'gold');
     if (ev.t === 'shield') showToast('🛡️ מגן הרצף הציל את הרצף שלך! ייטען מחדש בעוד 14 יום', 'gold');
     if (ev.t === 'firstweek') showToast('🎬 ראשון בשטח! פתחת את השבוע +15', 'gold');
+    if (ev.t === 'cheat') showToast('🍕 הקבוצה פתחה פאנל CHEAT! מגיעה לכם חגיגה', 'gold');
   }, 600 + i * 900));
   if (events.some(ev => ev.t !== 'badge')) confetti();
 }
