@@ -277,7 +277,7 @@ h2{font-size:1.15em;font-weight:800;margin-bottom:10px}
      - מצב ענן (FireStore): Firebase Auth + Firestore, סנכרון חי
        בין המשתתפים. ראו SETUP-FIREBASE.md להקמה.
    ============================================================ */
-const APP_VERSION = '1.9.0';
+const APP_VERSION = '1.9.1';
 
 /* ==== הגדרות Firebase ====
    אחרי הקמת הפרויקט (ראה SETUP-FIREBASE.md) מדביקים כאן את
@@ -380,18 +380,12 @@ const CLASSES = [
    ab:['שיר עידוד','לחש שינה','נגינה מרפאה','לעג מפחיד','המנון גבורה','שיר הסערה','בלדת הניצחון','אגדה חיה']},
   {id:'warlock', n:'מכשף', e:'🕯️', wp:'מטה הגולגולת', ar:'גלימת אופל', prime:'int',
    ab:['מגע צל','קללה','זימון שד','יניקת חיים','ענן רעל','שער לגיהינום','קללת המוות','אדון האופל']},
-  {id:'dwarf', n:'גמד לוחם', e:'🔨', wp:'פטיש רעם', ar:'שריון מיתרי', prime:'con',
-   ab:['מכת פטיש','עור סלע','זעם הגמדים','מגן מבצר','מכת רעש','שריון הרים','פטיש הברקים','מלך ההרים']},
   {id:'monk', n:'נזיר לוחם', e:'🥋', wp:'מוט קרב', ar:'גלימת אימון', prime:'dex',
    ab:['אגרוף ברזל','נשימת קרב','בעיטה מסתובבת','ריפוי עצמי','צעד הרוח','אגרוף רעם','כף היד הפתוחה','אדון האיזון']},
   {id:'valkyrie', n:'לוחמת ויקינגית', e:'🛡️', wp:'רומח הסופה', ar:'שריון קשקשים', prime:'str',
    ab:['דקירת רומח','מגן סוער','שאגת ויקינגים','זריקת רומח','חומת מגנים','ברק צפוני','זעם האלים','בת ולהאלה']},
   {id:'drow', n:'אלף אפל', e:'🌑', wp:'חרבות תאומות', ar:'שריון צללים', prime:'dex',
    ab:['מכת צללים','ראיית לילה','ענן אופל','ריקוד הלהבים','רעל עכביש','צעד בין צללים','מחול המוות','נסיך המעמקים']},
-  {id:'sorcerer', n:'מכשף מולד', e:'💫', wp:'שרביט ארקאני', ar:'גלימה קסומה', prime:'int',
-   ab:['ניצוץ ארקאני','מגן כוח','פיצוץ מולד','טלפורט קצר','גל אנרגיה','שינוי מציאות','נובה ארקאנית','דם הדרקון']},
-  {id:'halfling', n:'גמדון זריז', e:'🍀', wp:'פגיונות זריקה', ar:'אפוד עור', prime:'dex',
-   ab:['זריקת פגיון','מזל של גמדון','התחמקות','גניבה חלקה','מלכודת','קפיצת נינג׳ה','מכת מזל','אגדת השייר']},
   {id:'beastmaster', n:'אדון החיות', e:'🐺', wp:'קשת ציידים', ar:'אדרת פרווה', prime:'con',
    ab:['קריאת הזאב','עקבות','חץ צייד','ברית החיה','שאגת הלהקה','זימון עדר','רוח הטורף','אדון הבר']},
 ];
@@ -932,7 +926,7 @@ const DemoStore = {
     const members = {
       u1: mk('u1','מרקו','🦸‍♂️','#38b6ff','fighter','wolf', 2),
       u2: mk('u2','בן',  '🥷','#3ddc84','rogue','owl', 4),
-      u3: mk('u3','יגאל','🔨','#f97316','dwarf','horse', 3),
+      u3: mk('u3','יגאל','🪓','#f97316','barbarian','horse', 3),
       u4: mk('u4','נטע', '🏹','#b388ff','ranger','butterfly', 5),
       u5: mk('u5','בקה', '✨','#ff7ab6','cleric','unicorn', 2),
       u6: mk('u6','ויקס','🔮','#2dd4bf','wizard','griffin', 6),
@@ -2094,7 +2088,13 @@ function settingsHTML() {
     THEMES.map(t => '<button class="' + (myPick === t.id ? 'sel' : '') + '" style="background:linear-gradient(135deg,' + t.bg2 + ',' + t.ac + ')" onclick="setMyTheme(\'' + t.id + '\')">' + t.n + '</button>').join('') +
     '</div></div>';
 
-  h += '<div class="card"><b>📲 התקנה על האייפון</b><ol class="steps" style="margin-inline-start:18px">' +
+  const appUrl = location.origin + location.pathname.replace(/index\.html$/, '');
+  h += '<div class="card"><b>📲 התקנה על האייפון</b>' +
+    '<div class="row" style="gap:8px;margin:9px 0;flex-wrap:wrap">' +
+    '<code style="flex:1;min-width:60%;direction:ltr;text-align:left;background:rgba(0,0,0,.3);border:1px solid var(--line);' +
+    'border-radius:10px;padding:9px 11px;font-size:.78em;word-break:break-all">' + esc(appUrl) + '</code>' +
+    '<button class="btn" onclick="copyAppUrl()">📋 העתקה</button></div>' +
+    '<ol class="steps" style="margin-inline-start:18px">' +
     '<li>פתחו את הכתובת הזו ב<b>ספארי</b></li>' +
     '<li>לחצו על כפתור השיתוף <b>⬆️</b> (ריבוע עם חץ למעלה)</li>' +
     '<li>גללו ובחרו <b>"הוסף למסך הבית"</b></li>' +
@@ -2292,6 +2292,11 @@ async function doClaimCheat() {
   if (!confirm('לסגור את פאנל ה-CHEAT? (אחרי שחגגתם 🍕)')) return;
   try { await Store.claimCheat(); render(); showToast('שיהיה לבריאות! הספירה לצ\'יט הבא התחילה 🍕', 'gold'); }
   catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
+}
+async function copyAppUrl() {
+  const url = location.origin + location.pathname.replace(/index\.html$/, '');
+  try { await navigator.clipboard.writeText(url); showToast('הכתובת הועתקה 📋', 'gold'); }
+  catch (e) { prompt('העתיקו את הכתובת:', url); }
 }
 async function doShareInvite() {
   const url = location.origin + location.pathname;
