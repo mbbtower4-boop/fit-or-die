@@ -7,14 +7,18 @@
 1. נכנסים אל https://console.firebase.google.com עם חשבון הגוגל שלך.
 2. **Create a project** → שם: `fit-or-die` → אפשר לכבות את Google Analytics (לא נחוץ) → **Create**.
 
+> **שימו לב:** קונסולת Firebase עוצבה מחדש (2026) — **אין יותר תפריט "Build"**.
+> במקומו יש בתפריט הצד "Product categories" עם קטגוריות:
+> **Authentication** נמצא תחת **Security**, ו-**Firestore Database** תחת **Databases & Storage**.
+
 ## שלב 2 — הפעלת התחברות באימייל וסיסמה
 
-1. בתפריט הצד: **Build → Authentication → Get started**.
+1. בתפריט הצד: **Security → Authentication → Get started**.
 2. לשונית **Sign-in method** → לוחצים על **Email/Password** → מעבירים ל-**Enable** → **Save**.
 
 ## שלב 3 — יצירת מסד הנתונים
 
-1. בתפריט הצד: **Build → Firestore Database → Create database**.
+1. בתפריט הצד: **Databases & Storage → Firestore Database → Create database**.
 2. מיקום: לבחור `eur3 (europe-west)` (הכי קרוב לישראל) → **Next**.
 3. מצב: **Start in production mode** → **Create**.
 
@@ -26,9 +30,9 @@
 
 ## שלב 5 — רישום אפליקציית ווב וקבלת ההגדרות
 
-1. לוחצים על גלגל השיניים ⚙️ ליד **Project Overview** → **Project settings**.
-2. בתחתית, תחת **Your apps**, לוחצים על סמל הווב **`</>`**.
-3. שם: `fit-or-die` → לא לסמן Hosting → **Register app**.
+1. בתפריט הצד: **Settings** (גלגל שיניים) → **Project settings** → לשונית **General**.
+2. גוללים ל-**Your apps**. אם כתוב "There are no apps in your project" — לוחצים על סמל הווב **`</>`** (השלישי משמאל, בין האנדרואיד ל-Unity).
+3. שם: `fit-or-die` → **לא** לסמן "Also set up Firebase Hosting" → **Register app**.
 4. מוצג קטע קוד עם אובייקט `firebaseConfig` — מעתיקים **רק את האובייקט**, למשל:
 
 ```js
