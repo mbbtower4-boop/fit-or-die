@@ -1,0 +1,172 @@
+<!DOCTYPE html><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&display=swap" rel="stylesheet">
+<style>body{background:#111;margin:0;font-family:Heebo}canvas{width:300px;margin:6px;vertical-align:top}</style>
+<canvas id="c1" width="1080" height="1350"></canvas>
+<canvas id="c2" width="1080" height="1350"></canvas>
+<canvas id="c3" width="1080" height="1350"></canvas>
+<script>
+const W = 1080, H = 1350;
+const load = src => new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; });
+function rr(x, y, w, h, r) { const c = X; c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
+let X;
+function txt(s, x, y, size, color, weight, align) {
+  X.save(); X.direction = 'rtl'; X.textAlign = align || 'center'; X.fillStyle = color;
+  X.font = (weight || 700) + ' ' + size + 'px Heebo, Arial'; X.fillText(s, x, y); X.restore();
+}
+/* תמונת דמות עם מסגרת מעוגלת */
+function pic(img, x, y, w, h, border, r) {
+  if (!img) return;
+  X.save(); rr(x, y, w, h, r || 18); X.clip();
+  const s = Math.max(w / img.width, h / img.height);
+  X.drawImage(img, x + (w - img.width*s)/2, y + (h - img.height*s)/2, img.width*s, img.height*s);
+  X.restore();
+  if (border) { X.save(); X.strokeStyle = border; X.lineWidth = 5; rr(x, y, w, h, r || 18); X.stroke(); X.restore(); }
+}
+function glow(x, y, r, color, a) {
+  const g = X.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+  X.save(); X.globalAlpha = a; X.fillStyle = g; X.fillRect(0, 0, W, H); X.restore();
+}
+function card(x, y, w, h, fill, stroke) {
+  X.save(); X.fillStyle = fill; rr(x, y, w, h, 22); X.fill();
+  if (stroke) { X.strokeStyle = stroke; X.lineWidth = 2.5; X.stroke(); } X.restore();
+}
+
+/* ===== כרזה 1 — קלאסית זוהרת ===== */
+async function p1() {
+  X = document.getElementById('c1').getContext('2d');
+  const g = X.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#3a1a7a'); g.addColorStop(.45, '#1a0d3d'); g.addColorStop(1, '#0d0620');
+  X.fillStyle = g; X.fillRect(0, 0, W, H);
+  glow(120, 90, 520, '#ffd23f', .30); glow(980, 1260, 460, '#ff5757', .28);
+
+  txt('💀🔥', W/2, 128, 74, '#fff', 700);
+  const tg = X.createLinearGradient(0, 150, 0, 260);
+  tg.addColorStop(0, '#ffffff'); tg.addColorStop(.55, '#ffd23f'); tg.addColorStop(1, '#ff8a3d');
+  txt('FIT or DIE!', W/2, 252, 106, tg, 900);
+  txt('אתגר הכושר הקבוצתי שלנו יוצא לדרך', W/2, 312, 36, '#ffd23f', 700);
+  txt('שבוע 1 מתחיל מחר · יום ראשון', W/2, 358, 28, '#cfc4ff', 400);
+
+  const files = ['fighter-2','cleric-2','rogue-4','ranger-5','wizard-6'];
+  const imgs = await Promise.all(files.map(f => load('../avatars/' + f + '.jpg')));
+  const pw = 178, ph = 222, gap = 14, total = files.length * pw + (files.length-1) * gap;
+  imgs.forEach((im, i) => pic(im, (W - total)/2 + i*(pw+gap), 400 + (i%2 ? 16 : 0), pw, ph, i%2 ? '#b388ff' : '#ffd23f', 20));
+
+  const items = [['💪','150 דקות בשבוע','הליכה, ריצה, כושר, אופניים — הכול נספר'],
+                 ['😴','7–8 שעות שינה','כן, גם לישון זה חלק מהאתגר'],
+                 ['🥦','מתחת ל-100 ג׳ פחמימות','אתגר יומי — מסמנים ✔ וצוברים'],
+                 ['🐉','דמות שמתחזקת','כל אימון משדרג את הגיבור, הציוד והחיה']];
+  const cw = 468, chh = 168;
+  items.forEach((it, i) => {
+    const x = 56 + (i%2) * (cw + 32), y = 690 + Math.floor(i/2) * (chh + 24);
+    card(x, y, cw, chh, 'rgba(255,255,255,.09)', 'rgba(255,255,255,.20)');
+    txt(it[0], x + cw - 26, y + 56, 42, '#fff', 700, 'right');
+    txt(it[1], x + cw - 26, y + 104, 30, '#fff', 900, 'right');
+    txt(it[2], x + cw - 26, y + 142, 21, '#d8d2f5', 400, 'right');
+  });
+
+  const bx = (W - 560)/2;
+  const bg2 = X.createLinearGradient(bx, 0, bx+560, 0);
+  bg2.addColorStop(0, '#ffd23f'); bg2.addColorStop(1, '#ff8a3d');
+  card(bx, 1128, 560, 92, bg2);
+  txt('מצטרפים 👉 קוד FIT1', W/2, 1188, 36, '#1c1029', 900);
+  X.save(); X.direction = 'ltr'; X.textAlign = 'center'; X.fillStyle = '#fff'; X.font = '700 26px Heebo, Arial';
+  X.fillText('mbbtower4-boop.github.io/fit-or-die', W/2, 1258); X.restore();
+  txt('או שמתאמנים… או ש־ 💀', W/2, 1302, 24, '#ffd23f', 700);
+}
+
+/* ===== כרזה 2 — מגילת קלף ===== */
+async function p2() {
+  X = document.getElementById('c2').getContext('2d');
+  const g = X.createLinearGradient(0, 0, W, H);
+  g.addColorStop(0, '#1b1206'); g.addColorStop(.45, '#2e1c08'); g.addColorStop(1, '#120a04');
+  X.fillStyle = g; X.fillRect(0, 0, W, H);
+  glow(540, 200, 620, '#c9a227', .16);
+  X.save(); X.strokeStyle = '#c9a227'; X.lineWidth = 6; rr(38, 38, W-76, H-76, 16); X.stroke();
+  X.lineWidth = 2; rr(52, 52, W-104, H-104, 12); X.stroke(); X.restore();
+
+  txt('מ ג י ל ת   ה ק ר י א ה', W/2, 152, 26, '#c9a227', 700);
+  X.save(); X.shadowColor = 'rgba(0,0,0,.7)'; X.shadowOffsetY = 8; X.shadowBlur = 20;
+  txt('FIT or DIE! 💀', W/2, 250, 88, '#ffdf85', 900); X.restore();
+  txt('שישה גיבורים · יעד אחד · שבוע 1 מתחיל מחר', W/2, 300, 30, '#e6d5a8', 700);
+  X.save(); X.strokeStyle = 'rgba(201,162,39,.65)'; X.lineWidth = 3;
+  X.beginPath(); X.moveTo(120, 336); X.lineTo(W-120, 336); X.stroke(); X.restore();
+
+  const rows = [['fighter-3','⚔️ בוחרים דמות','18 מחלקות: לוחם, גנב, קוסם, כהן, אביר מוות ועוד —','לכל אחת יכולות ולחשים משלה, וחיה מלווה שגדלה איתכם.'],
+                ['dwarf-3','💪 מתאמנים — הדמות מתחזקת','כל דקת אימון, כל לילה של 8 שעות וכל יום תזונה נקי','מעלים תכונות, פותחים לחשים ומשדרגים ציוד: חרב +1…'],
+                ['cleric-4','🤝 יחד או בכלל לא','יעד קבוצתי שבועי, קפטן מתחלף כל שבוע, פאנל מפגש —','וכשצוברים מספיק נקודות: פאנל CHEAT 🍕']];
+  const imgs = await Promise.all(rows.map(r => load('../avatars/' + r[0] + '.jpg')));
+  rows.forEach((r, i) => {
+    const y = 378 + i * 214;
+    pic(imgs[i], W - 78 - 148, y, 148, 185, '#c9a227', 14);
+    txt(r[1], W - 250, y + 46, 33, '#ffdf85', 900, 'right');
+    txt(r[2], W - 250, y + 92, 22, '#e2d6ba', 400, 'right');
+    txt(r[3], W - 250, y + 126, 22, '#e2d6ba', 400, 'right');
+  });
+
+  const st = [['💪','150 דק׳','אימון בשבוע'], ['😴','49 שע׳','שינה בשבוע'], ['🥦','100 ג׳','פחמימות ליום']];
+  st.forEach((s, i) => {
+    const w = 296, x = 78 + i * (w + 16), y = 1032;
+    card(x, y, w, 132, 'rgba(201,162,39,.13)', 'rgba(201,162,39,.5)');
+    txt(s[0], x + w/2, y + 50, 34, '#fff', 700);
+    txt(s[1], x + w/2, y + 88, 26, '#ffdf85', 900);
+    txt(s[2], x + w/2, y + 118, 18, '#d9c9a3', 400);
+  });
+
+  const bx = (W - 520)/2;
+  card(bx, 1200, 520, 84, '#ffdf85');
+  txt('קוד הצטרפות: FIT1', W/2, 1254, 34, '#241503', 900);
+  X.save(); X.direction = 'ltr'; X.textAlign = 'center'; X.fillStyle = '#ffdf85'; X.font = '700 25px Heebo, Arial';
+  X.fillText('mbbtower4-boop.github.io/fit-or-die', W/2, 1318); X.restore();
+}
+
+/* ===== כרזה 3 — רשת גיבורים מודרנית ===== */
+async function p3() {
+  X = document.getElementById('c3').getContext('2d');
+  X.fillStyle = '#0b0620'; X.fillRect(0, 0, W, H);
+  glow(190, 160, 520, '#38b6ff', .32); glow(900, 350, 520, '#ff7ab6', .30); glow(540, 1240, 560, '#ffd23f', .28);
+
+  const tg = X.createLinearGradient(W-560, 0, W-60, 0);
+  tg.addColorStop(0, '#ff5757'); tg.addColorStop(.5, '#ff8a3d'); tg.addColorStop(1, '#ffd23f');
+  txt('FIT or DIE! 💀', W - 52, 96, 56, tg, 900, 'right');
+  card(52, 46, 250, 62, '#ff5757');
+  txt('מתחילים מחר 🔥', 177, 88, 26, '#fff', 900);
+
+  const files = ['fighter-1','wizard-2','rogue-2','paladin-1','cleric-1','deathknight-1'];
+  const imgs = await Promise.all(files.map(f => load('../avatars/' + f + '.jpg')));
+  const cols = 3, pw = 320, ph = 300, gx = 16;
+  imgs.forEach((im, i) => {
+    const x = 52 + (i % cols) * (pw + gx), y = 138 + Math.floor(i / cols) * (ph + gx);
+    pic(im, x, y, pw, ph, ['#ffd23f','#b388ff','#38b6ff','#3ddc84','#ff7ab6','#ff5757'][i], 20);
+  });
+
+  txt('האתגר שבו אתם הגיבורים', W/2, 830, 58, '#fff', 900);
+  txt('כל אימון, כל לילה שינה וכל יום תזונה — הופכים לנקודות', W/2, 880, 26, '#d6cff0', 400);
+  txt('שמחזקות את הדמות שלכם באמת', W/2, 918, 26, '#d6cff0', 400);
+
+  card(52, 950, W - 104, 300, 'rgba(255,255,255,.08)', 'rgba(255,255,255,.18)');
+  const li = [['💪','150 דקות אימון בשבוע — מדווחים תוך 5 שניות'],
+              ['😴','7–8 שעות שינה · יעד שבועי 49 שעות'],
+              ['🥦','מתחת ל-100 ג׳ פחמימות — בונוס על 7/7'],
+              ['👑','קפטן מתחלף כל שבוע — קובע יעד ופאנל'],
+              ['🍕','2000 נקודות קבוצתיות = פאנל CHEAT']];
+  li.forEach((l, i) => {
+    const y = 1008 + i * 54;
+    txt(l[0], W - 86, y, 32, '#fff', 700, 'right');
+    txt(l[1], W - 136, y, 25, '#efe9ff', 700, 'right');
+  });
+
+  const bg3 = X.createLinearGradient(52, 0, W-52, 0);
+  bg3.addColorStop(0, '#ffd23f'); bg3.addColorStop(1, '#ff8a3d');
+  card(52, 1272, W - 104, 100, bg3);
+  txt('מצטרפים עכשיו', W - 90, 1312, 32, '#1c1029', 900, 'right');
+  X.save(); X.direction = 'ltr'; X.textAlign = 'right'; X.fillStyle = '#3a2408'; X.font = '700 21px Heebo, Arial';
+  X.fillText('mbbtower4-boop.github.io/fit-or-die', W - 90, 1346); X.restore();
+  card(72, 1288, 150, 68, '#1c1029');
+  txt('FIT1', 147, 1334, 30, '#ffd23f', 900);
+}
+
+window.ready = false;
+(async () => { await document.fonts.ready; await p1(); await p2(); await p3(); window.ready = true; })();
+window.getPoster = i => document.getElementById('c' + i).toDataURL('image/jpeg', 0.93).split(',')[1];
+</script>

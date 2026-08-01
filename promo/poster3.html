@@ -1,0 +1,58 @@
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html{direction:ltr;background:#0b0620;overflow:hidden}
+body{width:1080px;height:1350px;font-family:Heebo,sans-serif;direction:rtl;color:#fff;overflow:hidden;position:relative;
+  background:#0b0620}
+.bg{position:absolute;inset:0;background:
+  radial-gradient(circle at 18% 12%,rgba(56,182,255,.30),transparent 42%),
+  radial-gradient(circle at 84% 26%,rgba(255,122,182,.28),transparent 44%),
+  radial-gradient(circle at 50% 92%,rgba(255,210,63,.26),transparent 46%)}
+.wrap{position:relative;z-index:2;padding:46px 46px 40px;height:100%;display:flex;flex-direction:column}
+.hdr{display:flex;align-items:center;justify-content:space-between}
+.logo{font-size:56px;font-weight:900;background:linear-gradient(90deg,#ffd23f,#ff8a3d,#ff5757);-webkit-background-clip:text;background-clip:text;color:transparent}
+.badge{background:#ff5757;color:#fff;font-size:24px;font-weight:900;padding:10px 24px;border-radius:999px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:26px 0 24px}
+.grid img{width:100%;aspect-ratio:1/1.22;object-fit:cover;border-radius:18px;border:3px solid rgba(255,255,255,.28)}
+.grid img:nth-child(1){border-color:#ffd23f}.grid img:nth-child(5){border-color:#ff7ab6}.grid img:nth-child(3){border-color:#38b6ff}
+.headline{font-size:60px;font-weight:900;line-height:1.08;text-align:center;margin-bottom:8px}
+.headline span{color:#ffd23f}
+.lead{font-size:26px;color:#d6cff0;text-align:center;line-height:1.45;margin-bottom:24px}
+.list{background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.16);border-radius:24px;padding:24px 28px}
+.li{display:flex;gap:14px;align-items:flex-start;margin-bottom:15px}
+.li:last-child{margin-bottom:0}
+.li .e{font-size:34px;line-height:1.1;flex:0 0 auto}
+.li .t{font-size:25px;font-weight:900}
+.li .d{font-size:20px;color:#cfc7ea;line-height:1.35;margin-top:2px}
+.foot{margin-top:auto;display:flex;align-items:center;gap:18px;background:linear-gradient(135deg,#ffd23f,#ff8a3d);
+  border-radius:22px;padding:20px 26px;color:#1c1029}
+.foot .big{font-size:31px;font-weight:900;line-height:1.15}
+.foot .lnk{font-size:20px;font-weight:700;direction:ltr;margin-top:3px}
+.foot .code{margin-inline-start:auto;background:#1c1029;color:#ffd23f;font-size:28px;font-weight:900;padding:14px 24px;border-radius:14px;white-space:nowrap}
+</style>
+<div class="bg"></div>
+<div class="wrap">
+  <div class="hdr"><div class="logo">FIT or DIE! 💀</div><div class="badge">מתחילים מחר 🔥</div></div>
+
+  <div class="grid">
+    <img src="../avatars/fighter-1.jpg"><img src="../avatars/wizard-2.jpg"><img src="../avatars/rogue-2.jpg">
+    <img src="../avatars/paladin-1.jpg"><img src="../avatars/cleric-1.jpg"><img src="../avatars/deathknight-1.jpg">
+  </div>
+
+  <div class="headline">האתגר שבו <span>אתם</span> הגיבורים</div>
+  <div class="lead">כל אימון, כל לילה שינה וכל יום תזונה — הופכים לנקודות שמחזקות את הדמות שלכם באמת</div>
+
+  <div class="list">
+    <div class="li"><div class="e">💪</div><div><div class="t">150 דקות אימון בשבוע</div><div class="d">מדווחים באפליקציה תוך 5 שניות — כולל תמונה מהשטח</div></div></div>
+    <div class="li"><div class="e">😴</div><div><div class="t">7–8 שעות שינה בלילה</div><div class="d">8 שעות = ניקוד מלא. יעד שבועי: 49 שעות</div></div></div>
+    <div class="li"><div class="e">🥦</div><div><div class="t">מתחת ל-100 גרם פחמימות</div><div class="d">אתגר יומי — 7/7 בשבוע נותן בונוס גדול</div></div></div>
+    <div class="li"><div class="e">👑</div><div><div class="t">קפטן מתחלף כל שבוע</div><div class="d">קובע את היעד, את נושא השבוע ואת מפגש הפאנל</div></div></div>
+    <div class="li"><div class="e">🍕</div><div><div class="t">פאנל CHEAT</div><div class="d">כשהקבוצה צוברת 2000 נקודות — מפגש חופשי מהחוקים</div></div></div>
+  </div>
+
+  <div class="foot">
+    <div><div class="big">מצטרפים עכשיו</div><div class="lnk">mbbtower4-boop.github.io/fit-or-die</div></div>
+    <div class="code">FIT1</div>
+  </div>
+</div>
