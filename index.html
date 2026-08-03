@@ -277,7 +277,7 @@ h2{font-size:1.15em;font-weight:800;margin-bottom:10px}
      - מצב ענן (FireStore): Firebase Auth + Firestore, סנכרון חי
        בין המשתתפים. ראו SETUP-FIREBASE.md להקמה.
    ============================================================ */
-const APP_VERSION = '1.9.1';
+const APP_VERSION = '1.10.0';
 
 /* ==== הגדרות Firebase ====
    אחרי הקמת הפרויקט (ראה SETUP-FIREBASE.md) מדביקים כאן את
@@ -388,6 +388,8 @@ const CLASSES = [
    ab:['מכת צללים','ראיית לילה','ענן אופל','ריקוד הלהבים','רעל עכביש','צעד בין צללים','מחול המוות','נסיך המעמקים']},
   {id:'beastmaster', n:'אדון החיות', e:'🐺', wp:'קשת ציידים', ar:'אדרת פרווה', prime:'con',
    ab:['קריאת הזאב','עקבות','חץ צייד','ברית החיה','שאגת הלהקה','זימון עדר','רוח הטורף','אדון הבר']},
+  {id:'mentor', n:'מדריכת הורים', e:'📖', wp:'ספר החוכמה', ar:'גלימת מנטור', prime:'wis',
+   ab:['מילה טובה','נשימה עמוקה','גבולות ברורים','הקשבה פעילה','רגיעה בסערה','אמפתיה מוחלטת','חוכמת הדורות','מנטורית אגדית']},
 ];
 /* חיות מלוות — נפתחות לפי דרגת הבעלים; דרגת החיה עצמה עולה עד 10 */
 const PET_MAX_LEVEL = 10;
@@ -576,7 +578,9 @@ function curWeek() {
 }
 function weekInfo(n) {
   const ch = state.challenge, saved = state.weeks[n] || {};
-  const order = ch.captainOrder && ch.captainOrder.length ? ch.captainOrder : Object.keys(state.members);
+  // תור הקפטנים כולל רק משתתפים פעילים (מי שהוסר מדלג)
+  let order = (ch.captainOrder || []).filter(u => state.members[u]);
+  if (!order.length) order = Object.keys(state.members);
   return {
     n,
     captainUid: saved.captainUid || order[n % order.length],
@@ -823,6 +827,13 @@ const DemoStore = {
   },
   async saveProfile(patch) { Object.assign(state.members[state.me], patch); this.save(); },
   async saveShared(patch) { Object.assign(state.members[state.me], patch); this.save(); },
+  async removeMember(uid) {
+    delete state.members[uid];
+    this.data.members = state.members;
+    state.challenge.captainOrder = (state.challenge.captainOrder || []).filter(u => u !== uid);
+    this.data.challenge = state.challenge;
+    this.save();
+  },
   async addMeasure(entry) {
     const m = state.members[state.me];
     m.measures = m.measures || [];
@@ -989,7 +1000,8 @@ const FireStore = {
       done.ch = true; ready();
     }, e => showToast('שגיאה: ' + e.message, 'bad')));
     this.unsubs.push(this.chRef().collection('members').onSnapshot(s => {
-      const m = {}; s.forEach(d => m[d.id] = Object.assign({uid: d.id}, d.data()));
+      // משתתף שהוסר מהקבוצה (removed) מסונן כאן — כל שאר האפליקציה לא צריכה לדעת
+      const m = {}; s.forEach(d => { if (!d.data().removed) m[d.id] = Object.assign({uid: d.id}, d.data()); });
       state.members = m; done.mem = true; ready();
     }));
     this.unsubs.push(this.chRef().collection('weeks').onSnapshot(s => {
@@ -1129,6 +1141,12 @@ const FireStore = {
   },
   async saveProfile(patch) { await this.chRef().collection('members').doc(state.me).update(patch); },
   async saveShared(patch) { await this.chRef().collection('members').doc(state.me).update(patch); },
+  /* הסרת משתתף — סימון רך (removed), כדי שלא יידרש שינוי בחוקי האבטחה
+     ושהנתונים יישמרו למקרה שנרצה להחזיר אותו */
+  async removeMember(uid) {
+    await this.chRef().collection('members').doc(uid).update({removed: true, removedAt: Date.now()});
+    await this.chRef().update({captainOrder: this.FV.arrayRemove(uid)});
+  },
   async addMeasure(entry) {
     await this.chRef().collection('members').doc(state.me).update({measures: this.FV.arrayUnion(entry)});
   },
@@ -1652,11 +1670,16 @@ function groupHTML() {
   const w = curWeek(), wi = weekInfo(w);
   const arr = Object.values(state.members).map(m => ({m, min: memberWeek(m, w).min})).sort((a,b) => b.min - a.min);
   const medals = ['🥇','🥈','🥉'];
+  // הסרת משתתף — סמכות של קפטן השבוע (והמארגן כגיבוי)
+  const canManage = wi.captainUid === state.me || state.challenge.organizerUid === state.me;
   return topbarHTML() + '<h2>הקבוצה 👥 <span class="muted" style="font-weight:400;font-size:.7em">שבוע ' + (w+1) + '</span></h2>' +
+    (canManage ? '<div class="tiny" style="margin:-4px 0 10px">⚡ כקפטן/מארגן אפשר להסיר משתתף בעזרת ה-✕ שבפינת הכרטיס</div>' : '') +
     arr.map((x, i) => {
       const m = x.m, lv = levelIndex(m.xp), mw = memberWeek(m, w);
       const kls = classById(m.avatar);
-      return '<div class="card" onclick="openSheet(\'' + m.uid + '\')"><div class="mcard">' + heroDuo(m, 76) +
+      return '<div class="card" style="position:relative" onclick="openSheet(\'' + m.uid + '\')"><div class="mcard">' + heroDuo(m, 76) +
+        (canManage && m.uid !== state.me
+          ? '<button class="delx" style="top:6px;inset-inline-end:6px" title="הסרה מהקבוצה" onclick="event.stopPropagation();doRemoveMember(\'' + m.uid + '\')">✕</button>' : '') +
         '<div class="grow"><div class="row spread"><b style="font-size:1.1em">' + esc(m.name) + (m.uid === wi.captainUid ? ' ⚡' : '') + '</b><span class="medal">' + (medals[i] || '') + '</span></div>' +
         '<div style="font-size:.72em;letter-spacing:1.5px;color:#ffd23f">' + '✦'.repeat(lv + 1) + '<span style="opacity:.25">' + '✦'.repeat(7 - lv) + '</span></div>' +
         '<div class="tiny">' + (kls ? kls.e + ' ' + kls.n + ' · ' : LEVELS[lv].e + ' ') + 'דרגה ' + (lv+1) + ' · 💥 ' + m.xp.toLocaleString('en-US') + (m.streakDays ? ' · 🔥 ' + m.streakDays : '') + '</div>' +
@@ -2471,6 +2494,22 @@ async function doWeekPlan() {
   } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
 }
 /* העברת הקפטנות למשתתף אחר — רק הקפטן הנוכחי */
+/* הסרת משתתף מהקבוצה — קפטן השבוע או המארגן */
+async function doRemoveMember(uid) {
+  const wi = weekInfo(curWeek());
+  if (wi.captainUid !== state.me && state.challenge.organizerUid !== state.me) {
+    showToast('רק קפטן השבוע או המארגן יכולים להסיר משתתף', 'bad'); return;
+  }
+  const m = state.members[uid];
+  if (!m || uid === state.me) return;
+  if (!confirm('להסיר את ' + m.name + ' מהקבוצה?\nהנתונים שלו יישמרו, אבל הוא לא יופיע יותר בקבוצה, ביעדים ובניקוד.')) return;
+  if (!confirm('בטוח? ' + m.name + ' יצטרך להזין שוב את קוד ההזמנה כדי לחזור.')) return;
+  try {
+    await Store.removeMember(uid);
+    render();
+    showToast(m.name + ' הוסר/ה מהקבוצה');
+  } catch (e) { showToast('שגיאה: ' + e.message, 'bad'); }
+}
 async function doHandCaptain(uid) {
   const w = curWeek(), wi = weekInfo(w);
   if (wi.captainUid !== state.me) { showToast('רק קפטן השבוע יכול להעביר את התפקיד', 'bad'); return; }
